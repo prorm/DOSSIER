@@ -1,0 +1,35 @@
+challenges:
+  - id: x1
+    mode: hunt
+    title: Cycle A
+    requires: [x2]
+    answer: { accept: [a] }
+  - id: x2
+    mode: hunt
+    title: Cycle B
+    requires: [x1]
+    answer: { accept: [b] }
+  - id: x3
+    mode: ctf
+    title: Wrong Category
+    category: pwn
+    answer: { accept: [c] }
+  - id: x4
+    mode: hunt
+    title: Missing Ref
+    requires: [nope]
+    assets: [assets/missing.png]
+    answer: { accept: [d] }
+  - id: Bad_ID
+    mode: hunt
+    title: Bad id
+    answer: { accept: [e] }
+  - id: x5
+    mode: inquest
+    title: Mode Off
+    answer: { accept: [] }
+  - id: x6
+    mode: hunt
+    title: Traversal
+    assets: [assets/../../etc/passwd]
+    answer: { accept: [f] }

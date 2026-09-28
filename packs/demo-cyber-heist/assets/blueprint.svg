@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 360" width="600" height="360">
+  <metadata>pathfinder-nav rev 7 // author: m.iyer // do not distribute</metadata>
+  <rect width="600" height="360" fill="#0B1017"/>
+  <g stroke="#00E5FF" stroke-opacity="0.8" fill="none" stroke-width="1.5">
+    <rect x="60" y="60" width="480" height="240" rx="12"/>
+    <circle cx="150" cy="180" r="50"/><circle cx="450" cy="180" r="50"/>
+    <path d="M200 180 H400"/><path d="M300 60 V300" stroke-dasharray="6 6"/>
+  </g>
+  <text x="300" y="40" text-anchor="middle" font-family="monospace" font-size="16" fill="#00E5FF">PATHFINDER — CHASSIS v7</text>
+  <text x="300" y="340" fill="#0B1017" font-size="4" font-family="monospace" opacity="0">DOSSIER{svg_h1d3s_s3cr3ts}</text>
+</svg>

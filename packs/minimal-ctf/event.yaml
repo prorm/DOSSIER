@@ -1,0 +1,17 @@
+# The smallest useful pack: a CTF-only event with an invite code.
+id: minimal-ctf
+name: Minimal CTF
+tagline: A three-flag warm-up. Copy this folder to start your own pack.
+modes: [ctf]
+registration:
+  open: true
+  code: WARMUP-2026
+  min_members: 1
+  max_members: 3
+theme:
+  accent: cyan
+  secondary: magenta
+ctf:
+  categories:
+    - { id: misc, name: Misc }
+    - { id: crypto, name: Crypto }

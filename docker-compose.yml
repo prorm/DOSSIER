@@ -1,0 +1,43 @@
+# DOSSIER — local/production-like stack.
+#   docker compose up -d db          # database only (for `pnpm dev`)
+#   docker compose up --build        # full stack (db + migrate + app)
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dossier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dossier}
+      POSTGRES_DB: dossier
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - dossier-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dossier -d dossier"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://dossier:${POSTGRES_PASSWORD:-dossier}@db:5432/dossier
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      ANSWER_SECRET: ${ANSWER_SECRET:?ANSWER_SECRET is required}
+      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET is required}
+      ACTIVE_PACK: ${ACTIVE_PACK:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - ./packs:/app/packs:ro
+
+volumes:
+  dossier-db:

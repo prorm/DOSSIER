@@ -1,0 +1,28 @@
+challenges:
+  - id: hello
+    mode: ctf
+    category: misc
+    title: Hello, Operative
+    points: 50
+    body: The flag is `FLAG{hello}`.
+    answer: { type: flag, accept: ["FLAG{hello}"] }
+
+  - id: hexed
+    mode: ctf
+    category: crypto
+    title: Hexed
+    points: 100
+    body: "`464c41477b6865787d` — decode me."
+    answer: { type: flag, accept: ["FLAG{hex}"] }
+    hints:
+      - { cost: 20, text: "Each pair of characters is one byte." }
+
+  - id: finale
+    mode: ctf
+    category: crypto
+    title: Finale
+    requires: [hello, hexed]
+    scoring: { type: dynamic, initial: 300, minimum: 100, decay: 5 }
+    first_blood_bonus: 50
+    body: Reverse `}elanif{GALF`.
+    answer: { type: flag, accept: ["FLAG{finale}"] }

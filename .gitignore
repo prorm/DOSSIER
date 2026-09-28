@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+coverage/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+next-env.d.ts
+.data/
+test-results/
+playwright-report/
+load/results/
+.pglite*/

@@ -1,0 +1,121 @@
+# Treasure hunt: an unlock graph. `requires: [a, b]` means ALL of a and b;
+# `requires: { any: [a, b] }` means at least one of them.
+challenges:
+  - id: h01
+    mode: hunt
+    title: Signal Zero
+    points: 50
+    position: { x: 8, y: 50 }
+    body: |
+      The first transmission is a riddle scrawled on the notice board:
+
+      > I have keys but open no locks.
+      > I have space but hold no room.
+      > You can enter, but you can never go outside.
+    answer:
+      accept: [keyboard, a keyboard]
+    hints:
+      - cost: 10
+        text: You are probably touching one right now.
+
+  - id: h02
+    mode: hunt
+    title: Binary Door
+    points: 75
+    requires: [h01]
+    position: { x: 30, y: 25 }
+    body: |
+      The next clue is taped to a server rack, in binary:
+
+      `01101100 01100001 01100010`
+
+      Where does the trail lead?
+    answer:
+      accept: [lab, the lab]
+
+  - id: h03
+    mode: hunt
+    title: Shelved Letters
+    points: 75
+    requires: [h01]
+    position: { x: 30, y: 75 }
+    body: |
+      A sticky note on a returns trolley reads **TRIAL BRY**.
+      Rearrange it to find the building.
+    answer:
+      accept: [library, the library]
+    hints:
+      - cost: 15
+        text: It is an anagram of a quiet building with a lot of books.
+
+  - id: h04
+    mode: hunt
+    title: Count the Sides
+    points: 100
+    requires: { any: [h02, h03] }
+    position: { x: 52, y: 50 }
+    body: |
+      Either path gets you here. Painted on the courtyard floor: a hexagon beside a pentagon.
+
+      How many sides do they have **in total**?
+    answer:
+      type: number
+      accept: [11]
+
+  - id: h05
+    mode: hunt
+    title: Mirror Protocol
+    points: 125
+    requires: [h02, h03]
+    position: { x: 52, y: 15 }
+    body: |
+      Only operatives who walked **both** paths can read the mirror note:
+
+      `noitalumis`
+    answer:
+      accept: [simulation]
+
+  - id: h06
+    mode: hunt
+    title: Dead Drop
+    points: 125
+    requires: [h04]
+    available_from: 2026-10-01T12:00:00Z
+    position: { x: 74, y: 70 }
+    body: |
+      A dead drop opens on a timer. Inside, a slip of paper in Morse:
+
+      `-.. --- ... ... .. . .-.`
+    answer:
+      accept: [dossier]
+
+  - id: h07
+    mode: hunt
+    title: The Vault
+    points: 200
+    requires: [h05, h04]
+    position: { x: 78, y: 30 }
+    body: |
+      The vault panel shows a string encrypted with the oldest trick in the book —
+      every letter pushed **three** places forward:
+
+      `FKHFNPDWH`
+    answer:
+      accept: [checkmate]
+    hints:
+      - cost: 20
+        text: Julius would shift each letter back by three.
+
+  - id: h08
+    mode: hunt
+    title: Last Light
+    points: 250
+    requires: { all: [h07], any: [h06, h05] }
+    position: { x: 94, y: 50 }
+    body: |
+      The final beacon asks one question:
+
+      What nine-letter word describes a person who investigates crimes?
+      Three of its letters are **E**, and it starts with **D**.
+    answer:
+      accept: [detective]

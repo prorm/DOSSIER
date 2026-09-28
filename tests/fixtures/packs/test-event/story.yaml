@@ -1,0 +1,25 @@
+case: { title: Test Case }
+briefing: Brief.
+victim: { name: Victim V }
+suspects:
+  - { id: s1, name: Suspect One }
+  - { id: s2, name: Suspect Two }
+evidence:
+  - { id: ev-start, title: Start Evidence, body: "START-BODY" }
+  - { id: ev-hidden, title: SEALED-TITLE-HIDDEN, body: "SEALED-BODY-HIDDEN", reveal: { after_challenge: i1 } }
+  - { id: ev-later, title: SEALED-TITLE-LATER, body: "SEALED-BODY-LATER", reveal: { visible_from: "2030-01-01T00:00:00Z" } }
+timeline:
+  - { at: "10:00", title: Public entry }
+  - { at: "11:00", title: SEALED-TIMELINE, requires_evidence: ev-hidden }
+accusation:
+  max_attempts: 3
+  penalties: [10, 20]
+  fields:
+    - { id: who, label: Who, type: suspect, points: 100 }
+    - id: why
+      label: Why
+      type: choice
+      points: 50
+      options: [{ id: greed, label: Greed }, { id: love, label: Love }]
+  solution: { who: s2, why: greed }
+  solution_md: "SOLUTION-TEXT"

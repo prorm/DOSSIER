@@ -1,0 +1,59 @@
+# DOSSIER demo pack — "Operation Nightglass"
+# Exercises every engine mode: treasure hunt, CTF, criminal inquest and live checkpoints.
+# All names, stories and answers here are fictional demo content.
+id: demo-cyber-heist
+name: Operation Nightglass
+tagline: One night. Four trails. A prototype that vanished at 23:35.
+organizer: DOSSIER Demo Crew
+timezone: Asia/Kolkata
+modes: [hunt, ctf, inquest, live]
+
+registration:
+  open: true
+  min_members: 1
+  max_members: 4
+
+scoring:
+  stuck_after_minutes: 25
+
+theme:
+  accent: green
+  secondary: cyan
+  codename: NIGHTGLASS
+  logo: assets/logo.svg
+  boot_lines:
+    - "mounting case archive ........ ok"
+    - "handshake with field stations .. ok"
+    - "decrypting operative roster ... ok"
+
+rules_md: |
+  **Rules of engagement**
+
+  - Teams of 1–4. One account per team; share the password with your teammates.
+  - Do not attack the DOSSIER platform itself. Every challenge is solvable from the material provided.
+  - Wrong answers are free at first, then trigger a cooldown that doubles each time.
+  - Hints cost points. First blood on a CTF challenge earns a bonus.
+  - The accusation in the Inquest is **final** once correct, and you only get three attempts.
+  - Live checkpoints: scan the QR code at the station, then show the volunteer your screen.
+
+ctf:
+  categories:
+    - id: web
+      name: Web
+      description: Source, cookies and the things browsers hide.
+    - id: crypto
+      name: Crypto
+      description: Ciphers from Caesar to XOR.
+    - id: forensics
+      name: Forensics
+      description: Logs, files and what they leak.
+    - id: misc
+      name: Misc
+      description: Everything else.
+
+hunt:
+  title: The Signal Trail
+  intro_md: |
+    A trail of signals was left across campus by a missing operative.
+    Each solved node opens the paths that depend on it. Some nodes need **all** of
+    their parents, some only **any one**.

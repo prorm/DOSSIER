@@ -1,0 +1,168 @@
+# CTF board. Flags are case-sensitive (`type: flag` normalizes with "exact").
+challenges:
+  - id: sanity
+    mode: ctf
+    category: misc
+    title: Sanity Check
+    points: 25
+    difficulty: easy
+    body: |
+      Welcome, operative. Flags look like `DOSSIER{...}`.
+
+      Submit this one to confirm your uplink: `DOSSIER{welcome_operative}`
+    answer:
+      type: flag
+      accept: ["DOSSIER{welcome_operative}"]
+
+  - id: comment-section
+    mode: ctf
+    category: web
+    title: Comment Section
+    points: 100
+    first_blood_bonus: 25
+    difficulty: easy
+    body: |
+      A junior developer shipped this login page. Browsers render it cleanly, but not everything
+      in the source is meant for users.
+
+      ```html
+      <form action="/login" method="post">
+        <input name="user" placeholder="operative id">
+        <!-- TODO remove before prod: DOSSIER{v1ew_s0urce_1s_a_sk1ll} -->
+        <button>Enter</button>
+      </form>
+      ```
+    answer:
+      type: flag
+      accept: ["DOSSIER{v1ew_s0urce_1s_a_sk1ll}"]
+
+  - id: cookie-monster
+    mode: ctf
+    category: web
+    title: Cookie Monster
+    scoring: { type: dynamic, initial: 300, minimum: 100, decay: 12 }
+    first_blood_bonus: 50
+    difficulty: medium
+    tags: [encoding]
+    body: |
+      The staging server set this cookie on every visitor:
+
+      ```
+      session=eyJ1c2VyIjoiZ3Vlc3QiLCJhZG1pbiI6ZmFsc2UsImZsYWciOiJET1NTSUVSe2I2NF8xc19uMHRfM25jcnlwdDEwbn0ifQ==
+      ```
+
+      The developer insists it's "encrypted". Is it?
+    answer:
+      type: flag
+      accept: ["DOSSIER{b64_1s_n0t_3ncrypt10n}"]
+    hints:
+      - cost: 30
+        text: The trailing `==` is a strong hint about the encoding.
+
+  - id: rot-in-peace
+    mode: ctf
+    category: crypto
+    title: Rot in Peace
+    points: 100
+    difficulty: easy
+    body: |
+      Intercepted on a public channel:
+
+      `QBFFVRE{ebg13_vf_n_pynffvp}`
+    answer:
+      type: flag
+      accept: ["DOSSIER{rot13_is_a_classic}"]
+
+  - id: xor-marks
+    mode: ctf
+    category: crypto
+    title: XOR Marks the Spot
+    requires: [rot-in-peace]
+    scoring: { type: dynamic, initial: 400, minimum: 150, decay: 10 }
+    first_blood_bonus: 75
+    difficulty: medium
+    body: |
+      The same actor upgraded to "military-grade" encryption. Hex ciphertext:
+
+      ```
+      6e657979636f7851521a58755d1b5e42751a444f7548535e1957
+      ```
+
+      Word is they used a **single-byte key**.
+    answer:
+      type: flag
+      accept: ["DOSSIER{x0r_w1th_0ne_byt3}"]
+    hints:
+      - cost: 40
+        text: You know the plaintext starts with `D`. What byte turns `0x44` into `0x6e`?
+      - cost: 80
+        text: The key is `0x2a` (42). XOR every byte with it.
+
+  - id: vigenere-vault
+    mode: ctf
+    category: crypto
+    title: Vigenère Vault
+    requires: [xor-marks]
+    scoring: { type: dynamic, initial: 500, minimum: 200, decay: 8 }
+    first_blood_bonus: 100
+    difficulty: hard
+    body: |
+      The final message in the chain used a repeating keyword. Only letters were shifted:
+
+      `ISKLNIJ{DJCK_TWI_WOJVQMMMFZ}`
+
+      The keyword has something to do with why you're here.
+    answer:
+      type: flag
+      accept: ["DOSSIER{KEYS_ARE_EVERYTHING}"]
+    hints:
+      - cost: 60
+        text: Every flag begins with `DOSSIER`. Known plaintext reveals the keyword's letters.
+
+  - id: packet-of-lies
+    mode: ctf
+    category: forensics
+    title: Packet of Lies
+    points: 150
+    first_blood_bonus: 25
+    difficulty: medium
+    assets: [assets/intercept.log]
+    body: |
+      A captured syslog from the lab gateway. Somewhere in the noise, somebody leaked a flag
+      in two halves.
+    answer:
+      type: flag
+      accept: ["DOSSIER{gr3p_is_y0ur_fr13nd}"]
+    hints:
+      - cost: 25
+        text: Search for lines tagged `LEAK`.
+
+  - id: layered
+    mode: ctf
+    category: forensics
+    title: Layered
+    points: 200
+    difficulty: medium
+    assets: [assets/blueprint.svg]
+    body: |
+      The stolen prototype's blueprint. It looks innocent when rendered — but images
+      can carry more than pixels.
+    answer:
+      type: flag
+      accept: ["DOSSIER{svg_h1d3s_s3cr3ts}"]
+    hints:
+      - cost: 40
+        text: SVG is just XML. Open it in a text editor.
+
+  - id: number-station
+    mode: ctf
+    category: misc
+    title: Number Station
+    points: 150
+    difficulty: medium
+    body: |
+      A shortwave number station repeats a single figure at midnight: the **sum of the first
+      100 prime numbers**. Submit the number (no flag wrapper needed).
+    answer:
+      type: number
+      accept: [24133]

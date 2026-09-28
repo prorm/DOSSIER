@@ -1,0 +1,251 @@
+# Criminal Inquest — "The 23:35 Incident". Entirely fictional.
+case:
+  title: The 23:35 Incident
+  codename: NIGHTGLASS
+  summary: A robotics professor found sedated in her lab. Her prototype drive — gone.
+
+briefing: |
+  At **00:20**, a campus guard found **Dr. Meera Iyer** unconscious at her desk in
+  Robotics Lab 3B. She has since recovered, but remembers nothing after 23:00.
+  The encrypted drive holding her team's navigation prototype is missing.
+
+  Four people had reason and opportunity. Work through the evidence, pin it to your
+  board, connect what matters — then file your accusation.
+
+  You have **three** attempts. Wrong accusations cost points, and the cost grows.
+
+victim:
+  name: Dr. Meera Iyer
+  details:
+    - { label: Role, value: "Associate Professor, Robotics" }
+    - { label: Found, value: "00:20, Lab 3B" }
+    - { label: Condition, value: Sedated — recovered }
+  body: |
+    Principal investigator on the *Pathfinder* autonomous navigation project. Known for
+    long nights in the lab and very strong coffee.
+  image: assets/victim.svg
+
+locations:
+  - id: l-lab
+    name: Robotics Lab 3B
+    body: Keycard-controlled lab. One door, one corridor camera outside.
+  - id: l-canteen
+    name: Night Canteen
+    body: Open until 01:00 during the fest. Orders logged per account.
+  - id: l-corridor
+    name: East Corridor
+    body: Connects the lab block to the canteen. Camera clock known to drift.
+
+suspects:
+  - id: s-arjun
+    name: Arjun Rao
+    role: PhD student, Pathfinder co-developer
+    details:
+      - { label: Access, value: Lab 3B (revoked last week) }
+      - { label: Seen, value: "Canteen, ~23:00" }
+    body: Wrote most of the Pathfinder navigation stack. Recently clashed with Dr. Iyer over the paper's author list.
+    image: assets/suspect-arjun.svg
+  - id: s-kavya
+    name: Kavya Menon
+    role: Rival lab lead
+    details:
+      - { label: Access, value: None to Lab 3B }
+      - { label: Seen, value: Keynote hall until 23:45 }
+    body: Competing for the same national grant as Dr. Iyer. Publicly dismissive of Pathfinder.
+    image: assets/suspect-kavya.svg
+  - id: s-dev
+    name: Dev Malhotra
+    role: Fest logistics head
+    details:
+      - { label: Access, value: Master catering account }
+      - { label: Seen, value: "Everywhere, all night" }
+    body: Runs the fest's catering orders. His account paid for dozens of late-night coffees.
+    image: assets/suspect-dev.svg
+  - id: s-nisha
+    name: Nisha Pillai
+    role: Lab technician
+    details:
+      - { label: Access, value: Lab 3B (full) }
+      - { label: Seen, value: Went home at 21:30 }
+    body: Maintains Lab 3B equipment. Reported her keycard missing that evening.
+    image: assets/suspect-nisha.svg
+
+evidence:
+  - id: e-scene
+    title: Incident Report
+    kind: document
+    summary: Guard's report from 00:20.
+    location: l-lab
+    reveal: { at_start: true }
+    body: |
+      **Campus Security — Incident 0917**
+
+      - 00:20 — Guard R. Thomas finds Dr. Iyer unresponsive at desk. Door closed, not forced.
+      - Two paper coffee cups on the desk. One empty, one untouched.
+      - Drive bay on the Pathfinder workstation open and empty.
+  - id: e-access
+    title: Keycard Access Log
+    kind: record
+    summary: Lab 3B door log for the night.
+    location: l-lab
+    suspects: [s-nisha]
+    reveal: { at_start: true }
+    body: |
+      | Time  | Card           | Result  |
+      |-------|----------------|---------|
+      | 22:58 | M. Iyer        | granted |
+      | 23:36 | N. Pillai      | granted |
+      | 23:49 | N. Pillai      | granted (exit) |
+      | 23:51 | A. Rao         | **denied** (revoked) |
+  - id: e-lab-report
+    title: Toxicology Note
+    kind: document
+    summary: What was in the empty cup.
+    reveal: { at_start: true }
+    body: |
+      Residue in the **empty** cup: a prescription sedative, dose consistent with 3–4 hours
+      of deep sleep. The untouched cup: plain coffee.
+  - id: e-guard
+    title: Guard's Statement
+    kind: testimony
+    summary: What the night guard remembers.
+    suspects: [s-nisha, s-arjun]
+    reveal: { at_start: true }
+    body: |
+      "Nisha came to the desk around eight to report her keycard lost — said she must have
+      dropped it in the canteen. Later, near half eleven, I saw a young man carrying two
+      coffees toward the lab block. Hoodie up. Didn't see his face."
+  - id: e-grant-draft
+    title: Draft Paper, Page 1
+    kind: document
+    summary: Pathfinder paper — the author list has a line through it.
+    suspects: [s-arjun]
+    reveal: { at_start: true }
+    body: |
+      *Pathfinder: Real-time Navigation on Commodity Hardware*
+
+      Authors: M. Iyer, ~~A. Rao~~, K. Sato
+
+      Margin note in red: "Arjun — contribution section doesn't justify authorship. Discuss."
+  - id: e-phone-log
+    title: Phone — Messages
+    kind: record
+    summary: Dr. Iyer's last messages.
+    suspects: [s-arjun]
+    reveal: { after_challenge: i-phone }
+    body: |
+      **22:10 → Arjun:** We need to talk about the author list. Come by the lab tonight.
+
+      **22:14 ← Arjun:** I'll bring coffee. Around 11:30?
+
+      **22:15 → Arjun:** Fine.
+  - id: e-coffee-receipt
+    title: Canteen Receipt
+    kind: record
+    summary: Two coffees, charged to the catering account.
+    location: l-canteen
+    suspects: [s-dev, s-arjun]
+    reveal: { after_challenge: i-receipt }
+    body: |
+      **Night Canteen — 23:05**
+
+      2 × Filter coffee (large)
+      Account: FEST-CATERING (D. Malhotra)
+      Collected by: **"A.R."** — signature on slip
+  - id: e-cctv
+    title: Corridor CCTV Still
+    kind: photo
+    summary: A figure at the lab door. Real time 23:35.
+    location: l-corridor
+    image: assets/cctv.svg
+    reveal: { after_challenge: i-cctv }
+    body: |
+      A figure in a grey hoodie holds a keycard to the Lab 3B reader. Two cups in the
+      other hand. The swipe one minute later is logged against **N. Pillai's** card.
+  - id: e-inventory
+    title: Lab Inventory Sheet
+    kind: document
+    summary: Found by teams who complete the Mirror Protocol on the hunt trail.
+    location: l-lab
+    reveal: { after_challenge: h05 }
+    body: |
+      Spare keycards on file: 0. Lost-and-found (canteen) log, 20:40:
+      "Keycard, N. Pillai — **collected by a student**, signature illegible."
+  - id: e-email
+    title: Late Email
+    kind: document
+    summary: Released to all teams later in the event.
+    suspects: [s-kavya]
+    reveal: { visible_from: 2026-10-01T12:00:00Z }
+    body: |
+      From: Kavya Menon — To: Grants Committee — Sent 23:40
+
+      "Please consider this a formal withdrawal of our lab's application. Pathfinder is the
+      stronger proposal." — which puts Kavya at her laptop, in the keynote hall, at 23:40.
+
+timeline:
+  - at: "20:00"
+    title: "Keycard reported lost"
+    body: "Nisha Pillai reports her card missing to the guard."
+  - at: "22:10"
+    title: "The summons"
+    body: "Dr. Iyer asks Arjun to come to the lab."
+    requires_evidence: e-phone-log
+  - at: "22:58"
+    title: "Victim enters lab"
+    body: "Dr. Iyer badges into Lab 3B."
+  - at: "23:05"
+    title: "Two coffees"
+    body: "Two large coffees collected by \"A.R.\"."
+    requires_evidence: e-coffee-receipt
+  - at: "23:35"
+    title: "Figure at the door"
+    body: "Hooded figure with two cups at Lab 3B."
+    requires_evidence: e-cctv
+  - at: "23:36"
+    title: "Nisha's card swiped"
+    body: "Lab 3B opens on N. Pillai's card."
+  - at: "00:20"
+    title: "Discovery"
+    body: "Guard finds Dr. Iyer sedated. Drive missing."
+
+accusation:
+  max_attempts: 3
+  penalties: [40, 80, 120]
+  fields:
+    - id: culprit
+      label: Who sedated Dr. Iyer and took the drive?
+      type: suspect
+      points: 300
+    - id: motive
+      label: Why?
+      type: choice
+      points: 150
+      options:
+        - { id: grant, label: To win the national grant }
+        - { id: credit, label: Being cut from the paper's authorship }
+        - { id: money, label: To sell the prototype }
+        - { id: accident, label: It was an accident }
+    - id: method
+      label: How was she incapacitated?
+      type: choice
+      points: 150
+      options:
+        - { id: sedative-coffee, label: Sedative in a coffee }
+        - { id: gas, label: Gas released in the lab }
+        - { id: blow, label: A blow to the head }
+    - id: entry
+      label: Which evidence best shows how the culprit got through the door?
+      type: evidence
+      points: 100
+  solution:
+    culprit: s-arjun
+    motive: credit
+    method: sedative-coffee
+    entry: e-access
+  solution_md: |
+    **Arjun Rao.** Cut from the author list, Arjun picked up Nisha's lost keycard from the
+    canteen lost-and-found (his own access had been revoked), collected two coffees on the
+    catering account at 23:05, laced one with a sedative and entered Lab 3B on **Nisha's card**
+    at 23:36. His own card was denied at 23:51 when he tried to come back for the charger.
+    Kavya's withdrawal email and Nisha's early exit clear them; Dev only paid for the coffee.

@@ -1,0 +1,5 @@
+id: broken
+name: Broken Pack
+modes: [hunt, ctf]
+ctf:
+  categories: [{ id: web, name: Web }]

@@ -1,0 +1,45 @@
+# Inquest puzzles: solving one reveals sealed evidence in the case file.
+challenges:
+  - id: i-phone
+    mode: inquest
+    title: The Locked Phone
+    points: 80
+    reveals: [e-phone-log]
+    body: |
+      Dr. Iyer's phone was found under her desk. A sticky note on the case reads:
+
+      > PIN = number of letters in **ORGANISER** × 101
+
+      Unlock the phone.
+    answer:
+      type: number
+      accept: [909]
+
+  - id: i-receipt
+    mode: inquest
+    title: Mirror Receipt
+    points: 80
+    reveals: [e-coffee-receipt]
+    body: |
+      A crumpled canteen slip has one word printed backwards through the alphabet
+      (A↔Z, B↔Y, …):
+
+      `XZUUVRMV`
+    answer:
+      accept: [caffeine]
+    hints:
+      - cost: 15
+        text: This is the Atbash cipher. X ↔ C.
+
+  - id: i-cctv
+    mode: inquest
+    title: Clock Drift
+    points: 100
+    reveals: [e-cctv]
+    body: |
+      The corridor camera's clock runs **17 minutes fast**. The frame of interest is
+      stamped **23:52**.
+
+      What was the real time? Answer as `HH:MM`.
+    answer:
+      accept: ["23:35"]

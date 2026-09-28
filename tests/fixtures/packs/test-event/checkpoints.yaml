@@ -1,0 +1,3 @@
+checkpoints:
+  - { id: cp1, name: Station One, points: 30, pin: "1234" }
+  - { id: cp2, name: Station Two, points: 15, requires_approval: false }

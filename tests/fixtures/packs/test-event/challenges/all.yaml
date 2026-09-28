@@ -1,0 +1,26 @@
+challenges:
+  - { id: a, mode: hunt, title: Alpha, points: 10, body: "SECRET-BODY-A", answer: { accept: ["The Red Fox"] } }
+  - id: b
+    mode: hunt
+    title: Bravo Locked Title
+    points: 20
+    body: "SECRET-BODY-B"
+    requires: [a]
+    answer: { accept: [bravo] }
+    hints:
+      - { cost: 5, text: "HINT-B-0" }
+      - { cost: 7, text: "HINT-B-1" }
+    assets: [assets/secret.txt]
+  - { id: c, mode: hunt, title: Charlie, points: 20, requires: [a], answer: { accept: [charlie] } }
+  - { id: d, mode: hunt, title: Delta, points: 30, requires: { any: [b, c] }, answer: { accept: [delta] } }
+  - { id: e, mode: hunt, title: Echo, points: 40, requires: [b, c], answer: { accept: [echo] } }
+  - { id: g, mode: hunt, title: Golf Gated, points: 5, available_from: "2030-01-01T00:00:00Z", answer: { accept: [golf] } }
+  - { id: f1, mode: ctf, category: misc, title: Flag One, points: 100, first_blood_bonus: 50, answer: { type: flag, accept: ["FLAG{One}"] } }
+  - id: f2
+    mode: ctf
+    category: misc
+    title: Flag Two
+    scoring: { type: dynamic, initial: 500, minimum: 100, decay: 4 }
+    answer: { type: flag, accept: ["FLAG{two}"] }
+  - { id: n1, mode: ctf, category: misc, title: Numeric, points: 10, answer: { type: number, accept: ["1000.5"] } }
+  - { id: i1, mode: inquest, title: Inquest Puzzle, points: 25, reveals: [ev-hidden], answer: { accept: [open sesame] } }

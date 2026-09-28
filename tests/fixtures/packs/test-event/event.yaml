@@ -1,0 +1,7 @@
+id: test-event
+name: Test Event
+modes: [hunt, ctf, inquest, live]
+registration: { open: true, min_members: 1, max_members: 4 }
+ctf:
+  categories:
+    - { id: misc, name: Misc }

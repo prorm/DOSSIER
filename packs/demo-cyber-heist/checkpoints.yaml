@@ -1,0 +1,27 @@
+# Live checkpoints. Print QR sheets from Admin → Checkpoints.
+# PINs are hashed at import; change them for a real event.
+checkpoints:
+  - id: cp-gate
+    name: Main Gate Relay
+    location: Main gate security booth
+    points: 50
+    pin: "4821"
+    instructions: Scan the code on the booth window, then show the guard-volunteer your screen.
+  - id: cp-library
+    name: Library Atrium
+    location: Ground floor, beside the returns desk
+    points: 60
+    pin: "7390"
+    instructions: Find the volunteer in the black DOSSIER tee. Solve their 30-second cipher out loud.
+  - id: cp-stage
+    name: Auditorium Stage
+    location: Stage-left wings
+    points: 75
+    pin: "1164"
+    instructions: Perform the team call-sign on stage. The volunteer approves on the spot.
+  - id: cp-canteen
+    name: Night Canteen
+    location: Counter 2
+    points: 40
+    requires_approval: false
+    instructions: Scanning this code is enough — it confirms automatically.
