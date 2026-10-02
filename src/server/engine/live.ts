@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
 import type { Executor } from "../db/client";
 import { checkpoints, checkpointScans, eventLog, teams, usedTokens } from "../db/schema";
 import { env } from "../env";
@@ -6,7 +6,9 @@ import { audit, type Actor } from "../audit";
 import { bus, topics } from "../realtime/bus";
 import { randomToken, signToken, verifyToken } from "../security/crypto";
 import { hitWindow } from "../security/ratelimit";
-import { assertPlayable } from "./event";
+import { assertPlayable, getEvent } from "./event";
+import { appendEvents } from "../game/journal";
+import { syncTeam } from "../game/engine";
 import { GameError } from "./errors";
 import { recomputeLeaderboard } from "./leaderboard";
 import type { EventRow } from "./types";
@@ -22,6 +24,8 @@ interface CheckpointClaims extends Record<string, unknown> {
   e: string;
   c: string;
   k: number;
+  /** Team-scoped printed code: only this team may claim it. */
+  t?: string;
 }
 interface BadgeClaims extends Record<string, unknown> {
   e: string;
@@ -37,6 +41,11 @@ export function checkpointToken(cp: CheckpointRow): string {
 
 export function checkpointUrl(cp: CheckpointRow): string {
   return `${env().APP_URL.replace(/\/$/, "")}/c/${checkpointToken(cp)}`;
+}
+
+/** Per-team printed code for team-scoped checkpoints (e.g. sealed envelopes handed to each team). */
+export function teamCheckpointToken(cp: CheckpointRow, teamId: string): string {
+  return signToken(env().TOKEN_SECRET, "checkpoint", { e: cp.eventId, c: cp.id, k: cp.tokenVersion, t: teamId } satisfies CheckpointClaims);
 }
 
 /** Short-lived, single-use team badge shown on the team's phone and scanned by a volunteer. */
@@ -96,19 +105,26 @@ async function confirmScan(db: Executor, scan: ScanRow, cp: CheckpointRow, decid
     .where(and(eq(checkpointScans.id, scan.id), eq(checkpointScans.status, "pending")))
     .returning({ id: checkpointScans.id });
   if (!updated.length) return false;
-  await db.insert(eventLog).values({
-    eventId: scan.eventId,
-    teamId: scan.teamId,
-    type: "checkpoint",
-    points: cp.points,
-    payload: { checkpointId: cp.id, scanId: scan.id },
-    createdAt: now,
-  });
+  if (cp.points !== 0)
+    await db.insert(eventLog).values({
+      eventId: scan.eventId,
+      teamId: scan.teamId,
+      type: "checkpoint",
+      points: cp.points,
+      payload: { checkpointId: cp.id, scanId: scan.id },
+      createdAt: now,
+    });
+  // The confirmation is a state transition: checkpoint gates and qr-checkpoint nodes react to it.
+  await appendEvents(db, scan.eventId, scan.teamId, [{ type: "checkpoint.confirmed", id: cp.id }], decidedBy === "auto" ? "team" : `staff:${decidedBy}`, now);
   return true;
 }
 
 async function afterDecision(db: Executor, eventId: string, teamId: string, checkpointId: string, status: string) {
-  if (status === "confirmed") await recomputeLeaderboard(db, eventId);
+  if (status === "confirmed") {
+    const event = await getEvent(db, eventId);
+    if (event?.blueprint) await syncTeam(db, event, teamId).catch((e) => console.error("[dossier] settle after checkpoint failed", e));
+    await recomputeLeaderboard(db, eventId);
+  }
   await bus().publish(topics.team(teamId), "checkpoint", { checkpointId, status });
   await bus().publish(topics.staff(eventId), "checkpoint", { checkpointId });
 }
@@ -126,10 +142,22 @@ export async function claimCheckpoint(db: Executor, opts: { event: EventRow; tea
   if (!limit.ok) throw new GameError("rate_limited", "Too many scans. Wait a moment.", { retryAfterMs: limit.retryAfterMs });
   const cp = await getCheckpoint(db, opts.event.id, claims.c);
   if (!cp || cp.tokenVersion !== claims.k) throw new GameError("invalid", "This QR code has been retired. Ask a volunteer.");
-  assertPlayable(opts.event, now);
+  if (claims.t && claims.t !== opts.teamId) throw new GameError("forbidden", "This code was issued to another team.");
+  if (cp.teamScoped && !claims.t) throw new GameError("invalid", "This checkpoint needs your team's own code. Ask a volunteer.");
+  if (cp.expiresAt && now > cp.expiresAt) throw new GameError("event_ended", "This checkpoint has closed.");
 
-  const [team] = await db.select({ status: teams.status }).from(teams).where(eq(teams.id, opts.teamId)).limit(1);
+  const [team] = await db.select({ status: teams.status, kind: teams.kind }).from(teams).where(eq(teams.id, opts.teamId)).limit(1);
   if (team?.status === "disqualified") throw new GameError("disqualified", "This team has been disqualified.");
+  if (team?.kind !== "playtest") assertPlayable(opts.event, now);
+
+  if (cp.claimLimit > 0) {
+    const [mine] = await db.select({ id: checkpointScans.id }).from(checkpointScans).where(and(eq(checkpointScans.eventId, opts.event.id), eq(checkpointScans.checkpointId, cp.id), eq(checkpointScans.teamId, opts.teamId))).limit(1);
+    const [{ n } = { n: 0 }] = await db
+      .select({ n: count() })
+      .from(checkpointScans)
+      .where(and(eq(checkpointScans.eventId, opts.event.id), eq(checkpointScans.checkpointId, cp.id), inArray(checkpointScans.status, ["pending", "confirmed"])));
+    if (!mine && n >= cp.claimLimit) throw new GameError("conflict", "Every claim for this checkpoint has been taken.");
+  }
 
   const inserted = await db
     .insert(checkpointScans)

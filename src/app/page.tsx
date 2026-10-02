@@ -1,27 +1,38 @@
-import { ArrowRight, Binary, Crosshair, FolderSearch, MapPinned, Trophy } from "lucide-react";
+import { ArrowRight, Binary, Crosshair, FileSearch, FolderSearch, Globe, MapPinned, Radio, Scale, Trophy, type LucideIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { AmbientTerminal } from "@/components/dossier/ambient";
-import { BootSequence, BOOT_COOKIE } from "@/components/dossier/boot-sequence";
+import { BootSequence } from "@/components/dossier/boot-sequence";
+import { BOOT_COOKIE } from "@/lib/boot";
 import { Countdown } from "@/components/dossier/countdown";
 import { EffectsBoot } from "@/components/dossier/effects";
 import { Markdown } from "@/components/dossier/markdown";
 import { PhaseChip } from "@/components/dossier/phase";
+import { FrontBackdrop } from "@/components/experience/front/front-backdrop";
+import { Showcase } from "@/components/experience/front/showcase";
 import DecryptedText from "@/components/reactbits/DecryptedText";
 import { Button } from "@/components/ui/button";
 import { SIGNAL_HEX } from "@/lib/signals";
 import { getDb } from "@/server/db/client";
 import { getActiveEvent } from "@/server/engine/event";
+import { env } from "@/server/env";
+import { teaserUniverse } from "@/server/game/presentation";
 import { pageTeamSession } from "@/server/page-auth";
 import { eventView } from "@/server/views";
 
-const MODE_INFO = {
+/** What each challenge family asks of a team, for the public landing page. */
+const FAMILY_INFO: Record<string, { icon: LucideIcon; title: string; text: string }> = {
+  cryptic: { icon: Crosshair, title: "Cryptic", text: "Multi-stage clues whose answers differ for every team." },
   hunt: { icon: Crosshair, title: "Treasure hunt", text: "Follow a branching trail of clues. Every solve opens new paths." },
-  ctf: { icon: Binary, title: "Capture the flag", text: "Crack ciphers, dig through files, find the flags. First blood pays." },
-  inquest: { icon: FolderSearch, title: "Criminal inquest", text: "Unseal evidence, pin it to your board, name the culprit." },
-  live: { icon: MapPinned, title: "Field checkpoints", text: "Physical stations across campus. Scan, prove, score." },
-} as const;
+  browser: { icon: Globe, title: "Browser investigation", text: "Live sites with evidence in headers, storage, caches and source maps. Bring DevTools." },
+  forensics: { icon: Radio, title: "Forensics", text: "Real files: EXIF, spectrograms, PDFs, logs, encrypted archives." },
+  ctf: { icon: Binary, title: "Technical", text: "Git history, packet captures, SQL over your own database." },
+  osint: { icon: FileSearch, title: "OSINT", text: "Correlate a fictional public trail. No single search finds it." },
+  inquest: { icon: FolderSearch, title: "Criminal inquest", text: "Interview suspects, rebuild the timeline, wire the evidence board." },
+  physical: { icon: MapPinned, title: "Field", text: "Physical stations across campus. Scan, prove, unlock." },
+  final: { icon: Scale, title: "Final reconstruction", text: "Culprit, motive, method, time and proof — only a coherent case scores in full." },
+};
 
 export default async function Landing() {
   const db = await getDb();
@@ -48,14 +59,50 @@ export default async function Landing() {
 
   const ev = eventView(event);
   const signedIn = team && team.team.eventId === event.id;
+  const teaser = teaserUniverse(event);
+  const teams = ev.registration.minMembers === ev.registration.maxMembers ? `teams of ${ev.registration.maxMembers}` : `teams of ${ev.registration.minMembers}–${ev.registration.maxMembers}`;
+
+  // Where DOSSIER is being shown rather than run (a demo, a hackathon floor), the front door says what the
+  // engine is and offers the live case as its proof. A real event's front door stays the event's own.
+  if (env().DEV_UI || process.env.SHOWCASE === "1") {
+    return (
+      <>
+        <EffectsBoot />
+        <main id="main" className="relative min-h-dvh overflow-hidden">
+          {teaser ? <FrontBackdrop input={teaser.input} fingerprint={teaser.fingerprint} layoutSeed={teaser.layoutSeed} accent={ev.theme.accent} shift={300} veil="showcase" /> : <AmbientTerminal tint={SIGNAL_HEX[ev.theme.accent] ?? "#39FF88"} />}
+          <Showcase
+            eventName={ev.name}
+            tagline={ev.tagline}
+            phase={ev.phase}
+            frozen={ev.frozen}
+            counts={teaser?.counts ?? null}
+            teams={`Played by ${teams}`}
+            signedIn={Boolean(signedIn)}
+            registrationOpen={ev.registration.open}
+            countdown={
+              ev.phase === "live" && ev.endsAt ? (
+                <p className="sc-case-clock">
+                  <Countdown to={ev.endsAt} label="Time remaining" /> left
+                </p>
+              ) : ev.phase === "standby" && ev.startsAt ? (
+                <p className="sc-case-clock">
+                  opens in <Countdown to={ev.startsAt} label="Starts in" />
+                </p>
+              ) : null
+            }
+          />
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
       <EffectsBoot />
       {!booted ? <BootSequence eventName={ev.name} codename={ev.theme.codename} lines={ev.theme.bootLines} /> : null}
       <main id="main" className="relative min-h-dvh overflow-hidden">
-        <AmbientTerminal tint={SIGNAL_HEX[ev.theme.accent] ?? "#39FF88"} />
-        <div className="relative mx-auto flex min-h-dvh max-w-5xl flex-col px-5 pt-6 pb-10">
+        {teaser ? <FrontBackdrop input={teaser.input} fingerprint={teaser.fingerprint} layoutSeed={teaser.layoutSeed} accent={ev.theme.accent} shift={260} /> : <AmbientTerminal tint={SIGNAL_HEX[ev.theme.accent] ?? "#39FF88"} />}
+        <div className="relative z-10 mx-auto flex min-h-dvh max-w-6xl flex-col px-5 pt-6 pb-10">
           <header className="flex items-center justify-between gap-3">
             <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-mute">
               DOSSIER <span className="text-faint">{"//"}</span> {ev.theme.codename ?? ev.id}
@@ -79,7 +126,7 @@ export default async function Landing() {
               <PhaseChip phase={ev.phase} frozen={ev.frozen} />
               {ev.organizer ? <span className="label-mono">{ev.organizer}</span> : null}
             </div>
-            <h1 id="hero" className="max-w-3xl text-4xl leading-[1.05] font-bold uppercase tracking-[0.02em] sm:text-6xl">
+            <h1 id="hero" className="front-title max-w-3xl text-4xl leading-[1.04] font-bold uppercase tracking-[0.02em] sm:text-6xl lg:text-7xl">
               <DecryptedText text={ev.name} animateOn="view" sequential speed={35} encryptedClassName="text-signal/60" />
             </h1>
             {ev.tagline ? <p className="mt-5 max-w-xl text-base text-ink-dim sm:text-lg">{ev.tagline}</p> : null}
@@ -116,24 +163,50 @@ export default async function Landing() {
                 </>
               )}
             </div>
+
+            {teaser ? (
+              <dl className="front-facts" aria-label="The case in numbers">
+                <div>
+                  <dt>Files</dt>
+                  <dd className="num">{teaser.counts.files}</dd>
+                </div>
+                <div>
+                  <dt>Acts</dt>
+                  <dd className="num">{teaser.counts.acts}</dd>
+                </div>
+                <div>
+                  <dt>Exhibits</dt>
+                  <dd className="num">{teaser.counts.exhibits}</dd>
+                </div>
+                <div>
+                  <dt>Players</dt>
+                  <dd>{teams}</dd>
+                </div>
+              </dl>
+            ) : null}
           </section>
 
-          <section aria-labelledby="modes-h" className="pb-8">
-            <h2 id="modes-h" className="label-mono mb-3">
-              Operations in this event
+          <section aria-labelledby="modes-h" className="front-read pb-8">
+            <h2 id="modes-h" className="label-mono mb-4">
+              What the case will ask of you
             </h2>
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {ev.modes.map((m) => {
-                const info = MODE_INFO[m];
+            <ol className="front-ops">
+              {ev.families.map((m, i) => {
+                const info = FAMILY_INFO[m] ?? { icon: Crosshair, title: m, text: "" };
                 return (
-                  <li key={m} className="panel bg-[color-mix(in_srgb,var(--color-surface)_85%,transparent)] p-4 backdrop-blur-sm">
-                    <info.icon className="size-5 text-signal" aria-hidden="true" />
-                    <h3 className="mt-3 font-mono text-sm font-semibold uppercase tracking-[0.06em]">{m === "hunt" ? ev.hunt.title : info.title}</h3>
-                    <p className="mt-1 text-sm text-ink-dim">{info.text}</p>
+                  <li key={m}>
+                    <span className="front-ops-no num" aria-hidden="true">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <info.icon className="front-ops-icon" aria-hidden="true" />
+                    <div>
+                      <h3>{info.title}</h3>
+                      <p>{info.text}</p>
+                    </div>
                   </li>
                 );
               })}
-            </ul>
+            </ol>
           </section>
 
           {ev.rulesMd ? (
@@ -146,7 +219,7 @@ export default async function Landing() {
           ) : null}
 
           <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faint">
-            <span>Powered by DOSSIER — open-source fest engine</span>
+            <span>Powered by DOSSIER — open-source investigation game engine</span>
             <Link href="/staff/login" className="hover:text-mute">
               Staff
             </Link>

@@ -2,9 +2,8 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { challenges, submissions } from "../../src/server/db/schema";
 import { freshDb, importFixture, makeTeam, startEvent } from "../helpers";
-import { submitAnswer } from "../../src/server/engine/play";
+import { caseFileView, dispatch } from "../../src/server/game/engine";
 import { checkpointToken, claimCheckpoint, getCheckpoint } from "../../src/server/engine/live";
-import { caseFile } from "../../src/server/engine/inquest";
 import { GameError } from "../../src/server/engine/errors";
 import { adjustScore } from "../../src/server/engine/admin";
 import { SYSTEM_ACTOR } from "../../src/server/audit";
@@ -12,6 +11,10 @@ import { signToken, verifyToken } from "../../src/server/security/crypto";
 import { env } from "../../src/server/env";
 import type { DB } from "../../src/server/db/client";
 import type { EventRow } from "../../src/server/engine/types";
+
+const submitAnswer = (db: DB, o: { event: EventRow; teamId: string; challengeId: string; answer: string }) =>
+  dispatch(db, { event: o.event, teamId: o.teamId, nodeId: o.challengeId, action: { type: "answer", value: o.answer } });
+const caseFile = (db: DB, event: EventRow, teamId: string) => caseFileView(db, event, teamId);
 
 describe("Security Requirements Suite", () => {
   let db: DB;

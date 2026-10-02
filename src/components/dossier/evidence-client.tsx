@@ -7,6 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError } from "@/lib/api";
+import { freeSpot } from "@/lib/experience/board-geometry";
 import { useCapableDevice, useEffectsEnabled } from "./effects";
 
 const HalftoneReveal = dynamic(() => import("@/components/reactbits/HalftoneReveal"), { ssr: false });
@@ -53,13 +54,13 @@ export function EvidenceImage({ src, alt }: { src: string; alt: string }) {
 export function SeenMarker({ evidenceId, isNew }: { evidenceId: string; isNew: boolean }) {
   useEffect(() => {
     if (!isNew) return;
-    api("/api/play/inquest/seen", { body: { evidenceId } }).catch(() => {});
+    api("/api/play/evidence/seen", { body: { evidenceId } }).catch(() => {});
   }, [evidenceId, isNew]);
   return null;
 }
 
 /** Pin to board + private team annotation (stored with the board, visible to your team only). */
-export function EvidenceBoardActions({ evidenceId, onBoard, annotation }: { evidenceId: string; onBoard: boolean; annotation: string }) {
+export function EvidenceBoardActions({ evidenceId, onBoard, annotation, taken = [] }: { evidenceId: string; onBoard: boolean; annotation: string; /** Where the wall is already occupied, so a new exhibit lands in a free spot. */ taken?: { x: number; y: number }[] }) {
   const [pinned, setPinned] = useState(onBoard);
   const [note, setNote] = useState(annotation);
   const [saved, setSaved] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -67,7 +68,8 @@ export function EvidenceBoardActions({ evidenceId, onBoard, annotation }: { evid
 
   const pin = async () => {
     try {
-      await api("/api/play/inquest/board", { body: { ops: [{ op: "place", id, x: 80 + Math.round(Math.random() * 400), y: 80 + Math.round(Math.random() * 260) }] } });
+      const spot = freeSpot(520, 340, taken);
+      await api("/api/play/board", { body: { ops: [{ op: "place", id, x: spot.x, y: spot.y }] } });
       setPinned(true);
     } catch (e) {
       setSaved("error");
@@ -77,7 +79,7 @@ export function EvidenceBoardActions({ evidenceId, onBoard, annotation }: { evid
   const save = async () => {
     setSaved("saving");
     try {
-      await api("/api/play/inquest/board", { body: { ops: [{ op: "annotate", id, text: note.slice(0, 1000) }] } });
+      await api("/api/play/board", { body: { ops: [{ op: "annotate", id, text: note.slice(0, 1000) }] } });
       setSaved("saved");
     } catch {
       setSaved("error");

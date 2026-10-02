@@ -1,15 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
+import { Chakra_Petch, Courier_Prime, IBM_Plex_Sans, Instrument_Serif, JetBrains_Mono, Newsreader } from "next/font/google";
 import { headers } from "next/headers";
 
+import { ThemeProvider } from "@/components/experience/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { getTheme, themeStyleSheet } from "@/lib/experience/themes";
 import { getDb } from "@/server/db/client";
 import { getActiveEvent } from "@/server/engine/event";
+import { resolveTheme } from "@/server/theme";
 
 import "./globals.css";
+import "./themes.css";
+import "./experience.css";
+import "./rooms.css";
+import "./board.css";
+import "./case.css";
+import "./exam.css";
 
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap", weight: ["400", "500", "600", "700"] });
 const sans = IBM_Plex_Sans({ subsets: ["latin"], variable: "--font-plex", display: "swap", weight: ["400", "500", "600"] });
+// Theme display faces: declared once, downloaded only when a theme actually uses them.
+const instrument = Instrument_Serif({ subsets: ["latin"], variable: "--font-instrument", display: "swap", weight: "400", style: ["normal", "italic"], preload: false });
+const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader", display: "swap", weight: ["400", "500", "600"], style: ["normal", "italic"], preload: false });
+const courier = Courier_Prime({ subsets: ["latin"], variable: "--font-courier", display: "swap", weight: ["400", "700"], preload: false });
+const chakra = Chakra_Petch({ subsets: ["latin"], variable: "--font-chakra", display: "swap", weight: ["400", "500", "600", "700"], preload: false });
 
 export async function generateMetadata(): Promise<Metadata> {
   const event = await getActiveEvent(await getDb()).catch(() => null);
@@ -24,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const viewport: Viewport = {
   themeColor: "#05070A",
-  colorScheme: "dark",
+  colorScheme: "dark light",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -33,17 +47,24 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Reading request headers makes every page dynamic, which the per-request CSP nonce requires.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
-  const event = await getActiveEvent(await getDb()).catch(() => null);
-  const theme = (event?.config as { theme?: { accent?: string; secondary?: string } } | undefined)?.theme;
+  const { theme: themeId, event } = await resolveTheme();
+  const theme = getTheme(themeId);
+  const accent = (event?.config as { theme?: { accent?: string; secondary?: string } } | undefined)?.theme;
   return (
     <html
       lang="en"
-      className={`${mono.variable} ${sans.variable}`}
-      data-accent={theme?.accent ?? "green"}
-      data-accent-2={theme?.secondary ?? "cyan"}
+      className={`${mono.variable} ${sans.variable} ${instrument.variable} ${newsreader.variable} ${courier.variable} ${chakra.variable}`}
+      data-accent={accent?.accent ?? "green"}
+      data-accent-2={accent?.secondary ?? "cyan"}
+      data-dossier-theme={themeId}
+      style={{ colorScheme: theme.scheme }}
       suppressHydrationWarning
     >
-      <head>{nonce ? <meta name="csp-nonce" content={nonce} /> : null}</head>
+      <head>
+        {nonce ? <meta name="csp-nonce" content={nonce} /> : null}
+        <meta name="theme-color" content={theme.palette.bg} />
+        <style dangerouslySetInnerHTML={{ __html: themeStyleSheet() }} />
+      </head>
       <body className="crt">
         <a
           href="#main"
@@ -51,7 +72,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Skip to content
         </a>
-        <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
+        <ThemeProvider theme={themeId}>
+          <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

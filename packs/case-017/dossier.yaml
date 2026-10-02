@@ -1,0 +1,796 @@
+# CASE 017 — THE LAST TRANSMISSION
+# DOSSIER flagship demo. Every answer below is a template over per-team world facts or node outputs:
+# two teams play the same architecture with different badges, keys, times, codes and files.
+schema: dossier/v2
+
+event:
+  id: case-017
+  title: "CASE 017 — The Last Transmission"
+  tagline: A researcher vanished after sending an encrypted message at 03:14. Three people had access.
+  university: Halvorsen Institute of Technology
+  organizer: DOSSIER demo
+  codename: LODESTAR
+  description: A seven-act cyber-investigation across a live intranet, real forensic files, a lab repository, a packet capture, a facilities database, suspect interviews and a campus checkpoint.
+  theme: { accent: cyan, secondary: amber }
+  mode: hybrid
+  durationMinutes: 300
+  teamSize: { min: 2, max: 4 }
+  timezone: Asia/Kolkata
+  registration: { open: true }
+  stuckAfterMinutes: 25
+  bootLines:
+    - "LINK ESTABLISHED :: HALVORSEN/B-WING"
+    - "RADIO CLUB LOG 03:14 :: 1 UNREAD BURST"
+    - "WORKSTATION VARGA-01 :: NO RESPONSE"
+  rules: |
+    - Everything you need is inside DOSSIER: the portal, the files, the database and the campus stations.
+    - The synthetic websites are yours to inspect with browser developer tools. They are sandboxed, fictional and generated for your team.
+    - Never enter restricted areas for a field checkpoint. Stations are on public paths.
+    - Answers differ per team. Sharing answers does not work; sharing techniques is part of the game.
+
+story:
+  title: The Last Transmission
+  codename: LODESTAR
+  premise: At 03:14 the radio club logged a burst on the lab's ground-station frequency. By morning Dr. Ilse Varga had vanished, her workstation wiped during a storm blackout. Three people had access.
+  briefing: |
+    **Case 017.** Dr. Ilse Varga leads LODESTAR, a student-built satellite ground station at the Kestrel Robotics Lab.
+    Last night a storm knocked out mains power in B-wing. At **03:14** the campus radio club logged a short burst
+    on the lab's frequency. This morning Varga is gone and her workstation in **Server Room B-114** has been wiped.
+
+    Three people could open B-114: **Theo Marsh**, **Dana Whitlock** and **Prof. Anand Rao**.
+
+    Start with what the radio club heard. Then look closely at the lab's own intranet — it remembers more than it shows.
+  characters:
+    - { id: varga, name: Dr. Ilse Varga, role: "Lead researcher, LODESTAR (missing)", bio: "Careful, private, keeps paper notebooks. Built the field units' storm-night beacons.", relationships: [{ to: rao, kind: reports to }] }
+    - { id: marsh, name: Theo Marsh, role: PhD scholar & part-time sysadmin, suspect: true, bio: "Friendly, overcommitted. Maintains the lab's repositories and the portal.", relationships: [{ to: rao, kind: supervised by }, { to: whitlock, kind: knows from the help desk }] }
+    - { id: whitlock, name: Dana Whitlock, role: Facilities night technician, suspect: true, bio: "Her badge opened B-114 during the outage. She reported her badge sleeve missing on Tuesday." }
+    - { id: rao, name: Prof. Anand Rao, role: Lab director, suspect: true, bio: "Argued publicly with Varga over grant credit last month." }
+    - { id: akers, name: Selene Akers, role: '"Talent scout", Corvid Aerospace', bio: "Appears wherever LODESTAR is discussed." }
+  organizations:
+    - { id: corvid, name: Corvid Aerospace, description: A private launch-services startup that wants ground-station access. }
+  locations:
+    - { id: b114, name: Server Room B-114, description: "Ground-station racks and Varga's workstation, B-wing first floor." }
+    - { id: kestrel-lab, name: Kestrel Robotics Lab, description: "B-wing, the lab proper." }
+    - { id: observatory, name: Old Observatory, description: The disused dome on the east lawn. Dome 2 still has power., geo: { lat: 12.9716, lon: 77.5946 } }
+    - { id: radio-club, name: Radio Club Shack, description: Behind the library. Logs every burst on the lab's frequency. }
+    - { id: north-gate, name: North Gate, description: Staff car park exit with a plate camera. }
+  artifacts:
+    - { id: uplink-key, name: LODESTAR uplink key, kind: secret, description: Whoever holds it can command the cubesat. }
+    - { id: field-kit, name: Varga's field kit, kind: object, description: A beacon unit and a sealed card. }
+  timeline:
+    - { id: t-dana, at: "01:10", title: Dana Whitlock leaves campus, actors: [whitlock], location: north-gate, requiresEvidence: ev-wifi-correlation }
+    - { id: t-storm, at: "02:31", title: Storm cuts mains power in B-wing, public: true }
+    - { id: t-door, at: "02:47", title: B-114 opens on Dana Whitlock's badge, actors: [whitlock], location: b114, requiresEvidence: ev-door-log }
+    - { id: t-tx, at: "03:14", title: The last transmission, actors: [varga], location: radio-club, public: true }
+  motives:
+    - { character: marsh, text: Corvid Aerospace offered to clear his debts in exchange for LODESTAR ground-station access. }
+    - { character: rao, text: Publicly disputed grant credit with Varga. }
+  truth:
+    culprit: marsh
+    motive: Traded LODESTAR ground-station access to Corvid Aerospace to clear his debts.
+    method: Used Dana Whitlock's borrowed badge to enter B-114 during the storm outage and wiped Varga's workstation.
+    location: b114
+    time: "02:47"
+    keyEvidence: [ev-wifi-correlation, ev-whiteboard]
+    explanation: |
+      Theo Marsh had promised Corvid Aerospace the LODESTAR uplink. When Ilse noticed the key rotation he had
+      quietly undone, he borrowed Dana Whitlock's badge "to fix a door reader", waited for the storm to mask the
+      outage alerts, and wiped Ilse's workstation from B-114. His phone sat on B-114's access point the whole time;
+      Dana's car had left campus at 01:10. Ilse saw it coming: she left her notebook, an encrypted backup and a
+      field unit beaconing from Observatory Dome 2 — and sent the 03:14 transmission so someone would follow.
+
+world:
+  facts:
+    codeword: { gen: word, from: [ORCHID, KESTREL, VANTA, HALCYON, TUNDRA, CINDER, SEXTANT, ZEPHYR, OBSIDIAN, LANTERN, QUARTZ, PARALLAX, BASALT, NIMBUS, HELIX, FATHOM], description: Preamble word heard by the radio club }
+    portalWord: { gen: word, from: [ATRIUM, HANGAR, TRELLIS, GANTRY, BULKHEAD, CUPOLA, PYLON, ARMATURE, KEYSTONE], description: Name of the intranet in the radio log }
+    txWord: { gen: word, from: [APOGEE, PERIGEE, ZENITH, NADIR, BEACON, WARDEN, HARBOR, THISTLE, JUNIPER, VECTOR, TEMPEST, UMBRA], description: Morse word in the 03:14 recording }
+    txDigits: { gen: code, pattern: "####", description: DTMF digits in the 03:14 recording }
+    badgeId: { gen: code, pattern: "KR-####", description: Dana Whitlock's badge }
+    keyFragment: { gen: code, pattern: "xxxx-xxxx", description: Uplink key ID removed before the audit }
+    beaconFix: { gen: hex, bytes: 3, description: Fix code reported by Ilse's field unit }
+    lockerNo: { gen: int, min: 11, max: 58, description: Observatory locker holding the spare kit }
+    dealRef: { gen: code, pattern: "CA-####-??", description: Corvid deal reference }
+    stormTime: { gen: time, base: "02:31", jitterMinutes: 5, description: Mains failure (local) }
+    wipeTime: { gen: time, base: "02:47", jitterMinutes: 7, description: Badge entry and wipe (local) }
+    unitHost: { gen: int, min: 20, max: 90, secret: false }
+    theoHost: { gen: int, min: 100, max: 199, secret: false }
+    forumAlias: { gen: pick, options: [stackrider, quietcarrier, lowearthlou, nightbus, downlinkdev], description: Theo's forum alias }
+    stormUtc: { gen: derive, template: "{{stormTime | addmin:-330}}" }
+    wipeUtc: { gen: derive, template: "{{wipeTime | addmin:-330}}" }
+    photoUtc: { gen: derive, template: "{{wipeTime | addmin:-324}}" }
+
+acts:
+  - { id: act1, title: The Message, phase: briefing, summary: Decode what the radio club heard at 03:14. }
+  - { id: act2, title: The Terminal, summary: "The lab's intranet looks ordinary. Its network traffic, storage and source do not." }
+  - { id: act3, title: The Evidence, summary: "A photograph, a recording, logs and a locked backup." }
+  - { id: act4, title: The Machine, summary: "Repository history, a packet capture and the facilities database." }
+  - { id: act5, title: The Inquest, summary: "Interviews, the timeline and the evidence board." }
+  - { id: act6, title: Campus, summary: Go where the transmission points. }
+  - { id: act7, title: The Last Transmission, summary: Reconstruct the night. }
+
+rounds:
+  - { id: r-message, act: act1, title: The Message, family: cryptic, tier: intro }
+  - { id: r-terminal, act: act2, title: The Terminal, family: browser, tier: beginner }
+  - { id: r-evidence, act: act3, title: The Evidence, family: forensics, tier: intermediate }
+  - { id: r-machine, act: act4, title: The Machine, family: ctf, tier: advanced }
+  - { id: r-trail, act: act4, title: Public Trail, family: osint, tier: intermediate }
+  - { id: r-inquest, act: act5, title: The Inquest, family: inquest, tier: expert }
+  - { id: r-campus, act: act6, title: Campus, family: physical, tier: advanced }
+  - { id: r-final, act: act7, title: The Last Transmission, family: final, tier: final }
+
+sites:
+  - id: kestrel
+    template: intranet
+    title: Kestrel Lab Intranet
+    org: Kestrel Robotics Lab · Halvorsen Institute
+    tagline: Internal services for the LODESTAR ground-station team. Authorised users only.
+    accent: "#1f6f8b"
+    news:
+      - { title: Ground-station maintenance window, date: 12 Mar, body: "Uplink key rotation for the March audit is complete. Report any command failures to T. Marsh." }
+      - { title: Storm advisory, date: 13 Mar, body: "Facilities expects outages in B-wing tonight. Servers are on UPS; the portal may run in offline mode." }
+      - { title: LODESTAR pass schedule, date: 11 Mar, body: "Next cubesat passes: 03:12–03:19 and 04:48–04:55 IST." }
+    people:
+      - { name: Dr. Ilse Varga, title: Lead researcher, email: ivarga@kestrel.example.edu, ext: "4117" }
+      - { name: Prof. Anand Rao, title: Lab director, email: arao@kestrel.example.edu, ext: "4101" }
+      - { name: Theo Marsh, title: PhD scholar / sysadmin, email: tmarsh@kestrel.example.edu, ext: "4130" }
+      - { name: Dana Whitlock, title: Facilities night technician, email: dwhitlock@facilities.example.edu, ext: "2209" }
+    pages:
+      - { path: lodestar, title: LODESTAR, body: "LODESTAR is our student-built cubesat ground station. Command access requires the current uplink key, held by the lead researcher.\n\nOffline mode keeps your notes and drafts available during outages." }
+  - id: forum
+    template: forum
+    title: OrbitTalk Forums
+    org: Community forum for small-satellite builders (fictional)
+    tagline: Build logs, ham radio, and the occasional drama.
+
+nodes:
+  # ───────────── ACT I — THE MESSAGE ─────────────
+  - id: radio-log
+    round: r-message
+    title: The 03:14 burst
+    primitive: cryptic
+    briefing: |
+      The radio club's night operator heard a short burst on the lab's frequency at 03:14 and scribbled what they could.
+      Their log entry is below. Work through it clue by clue.
+    config:
+      steps:
+        - prompt: "The preamble arrived mirrored end to end of the alphabet: **`{{codeword | atbash}}`**"
+          answer: "{{codeword}}"
+          reveal: The operator underlined the word twice. It was a key.
+        - prompt: "Then a name, enciphered with that key (Vigenère): **`{{portalWord | vigenere:@codeword}}`**"
+          answer: "{{portalWord}}"
+          reveal: "{{portalWord}} is the name of the lab's internal portal. Ilse wanted someone to look there."
+      intentional: [atbash]
+    rewards: { evidence: [ev-radio-log], phase: terminal }
+    scoring: { points: 100 }
+    estimatedMinutes: 10
+    skills: [classical ciphers]
+    hints:
+      - { level: nudge, text: "Atbash: A↔Z, B↔Y, … Every letter mirrors." }
+      - { level: technique, text: "The second clue is a Vigenère cipher. The key is the first answer." }
+      - { level: explicit, text: "Clue 1 decodes to {{codeword}}; clue 2 to {{portalWord}}." }
+
+  - id: access-roster
+    round: r-message
+    title: Who could open B-114?
+    primitive: cryptic
+    optional: true
+    briefing: Facilities sent the B-114 access list as a railfence, because of course they did.
+    config:
+      steps:
+        - prompt: "Three surnames, no spaces, written in a zig-zag over three rails and read row by row: **`MHTKASWILCRORHOA`**"
+          answer: MARSHWHITLOCKRAO
+          alternates: [MARSH WHITLOCK RAO]
+          reveal: Marsh, Whitlock, Rao. Nobody else's badge opens that door.
+    rewards: { evidence: [ev-roster], resources: { intel: 1 } }
+    scoring: { points: 40 }
+    estimatedMinutes: 6
+    hints:
+      - { level: technique, text: "Write the letters in a zig-zag over three rows, then read row by row." }
+
+  # ───────────── ACT II — THE TERMINAL ─────────────
+  - id: kestrel-portal
+    round: r-terminal
+    title: The portal remembers
+    primitive: web-investigation
+    gate: { node: radio-log }
+    briefing: |
+      The Kestrel Lab intranet looks like any other university portal: announcements, a staff directory, a status pill.
+      Ilse's notes mention a **maintenance passphrase** the portal client assembles "for the audit".
+      Nothing on the page shows it. Everything you need is in what the page *does*.
+    config:
+      site: kestrel
+      mode: fragments
+      channels: [response-header, indexeddb, html-comment, server-timing]
+      labels: [trace, draft, memo, relay]
+      orderChannel: sourcemap
+      decoys: 2
+      secretName: maintenance passphrase
+    exports: { maintPass: answer }
+    rewards: { evidence: [ev-portal-note], phase: records }
+    scoring: { points: 200 }
+    estimatedMinutes: 20
+    skills: [browser developer tools]
+    hints:
+      - { level: nudge, text: "Open DevTools before you reload the page. Watch the Network tab." }
+      - { level: technique, text: "Four fragments live in four places: a response header, an HTML comment on the directory page, an IndexedDB store, and the Server-Timing entry. Ignore anything marked -old." }
+      - { level: partial, cost: 80, text: "The order is written in a comment in the original source — DevTools shows it under Sources thanks to the source map." }
+
+  - id: offline-notes
+    round: r-terminal
+    title: Offline mode
+    primitive: web-investigation
+    gate: { node: kestrel-portal }
+    briefing: |
+      The storm advisory said the portal "may run in offline mode". Offline mode means the browser kept a copy of
+      someone's drafts. One of them was never sent. Follow the sync machinery to it.
+    config:
+      site: kestrel
+      mode: chain
+      decoys: 4
+      secretName: note reference
+      fragmentPattern: "??##"
+      chainNote: "Unsent — to Dana: If anything happens to me, don't let them blame you. Theo asked to borrow your badge again. My notebook has the rest. Ref %ANSWER%."
+    rewards: { evidence: [ev-unsent-note] }
+    scoring: { points: 150 }
+    estimatedMinutes: 15
+    skills: [web storage]
+    hints:
+      - { level: nudge, text: "Application → Local Storage has a sync cursor." }
+      - { level: technique, text: "Find the IndexedDB record whose key is that cursor, then open the Cache Storage entry it points to." }
+
+  - id: records-desk
+    round: r-terminal
+    title: The records desk
+    primitive: session-state
+    gate: { all: [{ node: kestrel-portal }, { phase: records }] }
+    briefing: |
+      A new page appeared on the portal: the **Records desk**. It refuses you. Your browser holds several cookies
+      from the portal; only one of them decides what the records desk thinks you are. Find out how clearance is
+      granted — the portal itself tells you, if you watch the right response.
+    config:
+      site: kestrel
+      code: "{{maintPass}}"
+      header: X-Case-Code
+      recordTitle: B-wing door controller export (controller clock runs 3 min fast)
+      columns: [time, door, badge, result]
+      rows:
+        - ["01:02:44", "B-101", "KR-2231", "GRANTED"]
+        - ["{{wipeTime | addmin:3}}:13", "B-114", "{{badgeId}}", "GRANTED"]
+        - ["{{wipeTime | addmin:5}}:02", "B-117", "KR-9043", "DENIED"]
+        - ["{{wipeTime | addmin:24}}:40", "B-114", "{{badgeId}}", "GRANTED"]
+      answer: "{{badgeId}}"
+      question: "Which badge opened B-114 during the outage?"
+      decoyCookies: 4
+    rewards: { evidence: [ev-door-log], timeline: [t-door] }
+    scoring: { points: 200 }
+    estimatedMinutes: 20
+    skills: [cookies, HTTP]
+    hints:
+      - { level: nudge, text: "Look at the 403 response's headers, not just its body." }
+      - { level: technique, text: "Clearance is a POST with a header. The code it wants is something you assembled in the previous file. Try fetch() from the console." }
+
+  # ───────────── ACT III — THE EVIDENCE ─────────────
+  - id: whiteboard-photo
+    round: r-evidence
+    title: The whiteboard photo
+    primitive: image-forensics
+    gate: { node: records-desk }
+    briefing: A photo of the B-114 whiteboard turned up in the lab's shared drive, uploaded from a phone during the night.
+    config:
+      question: At what local lab time (IST, UTC+05:30) was the photo taken?
+      answer: "{{photoUtc | addmin:330}}"
+      answerFormat: HH:MM
+      filename: IMG_20260313_whiteboard.jpg
+      scene: whiteboard
+      width: 720
+      height: 420
+      lines: ["UPLINK KEY - ROTATE BACK?", "CA CALL FRI 18:00", "BEACON -> DOME 2", "DONT TELL ILSE"]
+      exif: { make: Google, model: Pixel 7, software: HDR+ 1.0.5, dateTimeOriginal: "2026:03:13 {{photoUtc}}:42", offsetTimeOriginal: "+00:00", ownerName: t.marsh, serial: "PX7-{{theoHost}}83" }
+    rewards: { evidence: [ev-whiteboard] }
+    scoring: { points: 150 }
+    estimatedMinutes: 12
+    hints:
+      - { level: nudge, text: "The picture is only half the evidence. Look at its metadata." }
+      - { level: technique, text: "exiftool shows DateTimeOriginal and OffsetTimeOriginal. The camera recorded UTC." }
+
+  - id: last-transmission
+    round: r-evidence
+    title: The recording
+    primitive: audio-forensics
+    gate: { node: kestrel-portal }
+    briefing: The radio club kept the raw recording of the 03:14 burst. Two channels, and they are not the same.
+    config:
+      question: "What is the transmission key? (Morse word and DTMF digits, joined with a dash)"
+      answer: "{{txWord}}-{{txDigits}}"
+      answerFormat: WORD-####
+      filename: radioclub_0314_raw.wav
+      rate: 22050
+      left: [{ kind: silence, seconds: 0.6 }, { kind: morse, text: "{{txWord}}", wpm: 14, freq: 700 }, { kind: silence, seconds: 0.5 }]
+      right: [{ kind: silence, seconds: 0.4 }, { kind: dtmf, text: "{{txDigits}}" }, { kind: silence, seconds: 0.3 }, { kind: spectrogram, text: "L THEN R" }]
+      noise: 0.04
+      info: { INAM: burst 03:14 IST, ICMT: "radio club rig 2 / both channels recorded" }
+    exports: { transmissionKey: answer }
+    rewards: { evidence: [ev-transmission] }
+    scoring: { points: 200 }
+    estimatedMinutes: 18
+    hints:
+      - { level: nudge, text: "Split the stereo track and listen to each channel alone." }
+      - { level: technique, text: "Left is Morse. Right has touch-tones and something only a spectrogram shows." }
+
+  - id: ups-syslog
+    round: r-evidence
+    title: Power and logs
+    primitive: file-forensics
+    gate: { node: records-desk }
+    briefing: Facilities exported the UPS event log; IT pulled what was left of the workstation's syslog before the wipe finished.
+    config:
+      question: At what local time (IST) did the secure erase begin?
+      answer: "{{wipeTime}}"
+      answerFormat: HH:MM
+      files:
+        - kind: log
+          name: ups_events.csv
+          date: "2026-03-13"
+          format: csv
+          host: ups-bwing-2
+          tzLabel: Z
+          entries:
+            - { time: "{{stormUtc}}:05", text: "INPUT FAIL - ON BATTERY (load 41%)" }
+            - { time: "{{stormUtc | addmin:52}}:30", text: "INPUT RESTORED - ON LINE" }
+          noise: { count: 40, from: "19:30", to: "22:30", messages: ["SELFTEST OK", "BATTERY 100%", "LOAD %N%W"] }
+        - kind: log
+          name: varga-ws01_syslog.txt
+          date: "2026-03-13"
+          format: syslog
+          host: varga-ws01
+          header: "# clock: UTC (host default, never changed)"
+          entries:
+            - { time: "{{wipeUtc | addmin:-2}}:51", text: "sshd[3312]: Accepted password for tmarsh from 10.14.3.{{theoHost}} port 51022" }
+            - { time: "{{wipeUtc}}:41", text: "maint[4121]: secure-erase started on /dev/nvme0n1 (user tmarsh)" }
+            - { time: "{{wipeUtc | addmin:9}}:03", text: "kernel: nvme0n1: I/O error, dev nvme0n1, sector 0" }
+          noise: { count: 160, from: "19:00", to: "22:00", messages: ["CRON[%PID%]: (root) CMD (run-parts /etc/cron.hourly)", "systemd[1]: Started session %N% of user ivarga.", "sshd[%PID%]: Connection closed by %IP% port %N%", "rsyslogd: action suspended, retry %N%"] }
+    rewards: { evidence: [ev-wipe-log] }
+    scoring: { points: 150 }
+    estimatedMinutes: 15
+    hints:
+      - { level: nudge, text: "grep for the word erase." }
+      - { level: technique, text: "The header tells you which clock the host used. The lab runs on IST (UTC+05:30)." }
+
+  - id: encrypted-backup
+    round: r-evidence
+    title: The locked backup
+    primitive: file-forensics
+    gate: { node: last-transmission }
+    briefing: |
+      Ilse's cloud folder held one encrypted archive, uploaded at 03:13. Its comment says: "the key is the transmission".
+    config:
+      question: What deal reference did Corvid Aerospace quote?
+      answer: "{{dealRef}}"
+      answerFormat: CA-####-XX
+      files:
+        - kind: email
+          name: fwd_corvid_offer.eml
+          from: "Selene Akers <selene.akers@corvid-aero.example>"
+          to: "Theo Marsh <tmarsh@kestrel.example.edu>"
+          subject: "Re: ground-station access — terms"
+          date: "2026-03-10T16:42:00Z"
+          tz: "+0000"
+          received:
+            - "from mx.kestrel.example.edu (10.14.0.25) by imap.kestrel.example.edu; Tue, 10 Mar 2026 16:42:09 +0000"
+            - "from mail.corvid-aero.example (198.51.100.44) by mx.kestrel.example.edu; Tue, 10 Mar 2026 16:42:07 +0000"
+          headers: { X-Deal-Reference: "{{dealRef}}", X-Forwarded-To: "ivarga@kestrel.example.edu" }
+          body: "Theo — as discussed, we settle the outstanding amount on handover of uplink access. Our reference is in the header. Friday.\n\n— S."
+        - kind: text
+          name: README_IF_FOUND.txt
+          content: "If you are reading this, you decoded the burst. Theo has been talking to Corvid. He undid the key rotation.\nThe repository remembers what he deleted. My field unit reports from the dome when nothing else works.\n— I.V."
+      zip: { name: varga_backup_0313.zip, password: "{{transmissionKey}}", comment: the key is the transmission }
+    rewards: { evidence: [ev-corvid-offer] }
+    scoring: { points: 200 }
+    estimatedMinutes: 12
+    hints:
+      - { level: nudge, text: "unzip -P or 7-Zip will ask for a password. You already decoded it." }
+      - { level: technique, text: "Mail headers carry more than the body. Look for X- headers." }
+
+  - id: lab-notebook
+    round: r-evidence
+    title: The lab notebook
+    primitive: pdf-forensics
+    gate: { node: offline-notes }
+    briefing: The unsent note pointed at Ilse's notebook. IT exported it as a PDF. Some lines were "redacted" before upload.
+    config:
+      question: Which observatory locker holds Ilse's spare field kit?
+      answer: "{{lockerNo}}"
+      answerFormat: number
+      filename: varga_notebook_mar.pdf
+      title: LODESTAR lab notebook — March
+      author: I. Varga
+      subject: Ground-station operations
+      keywords: [lodestar, uplink, audit, field-unit]
+      created: "2026-03-01T04:10:00Z"
+      modified: "2026-03-13T21:40:00Z"
+      pages:
+        - { heading: "Mar 11", lines: ["Key rotation for the audit done. New key ID logged in the repo.", "Theo offered to handle the next pass. Declined.", "Field unit 2 moved to the observatory for testing."], footer: "LODESTAR / confidential" }
+        - { heading: "Mar 13", lines: ["Command log shows the OLD key used at 18:04. Rotation was reverted.", "Only T. has repo admin. Asked him; he laughed it off.", "If tonight goes wrong:"], redacted: [{ text: "Spare kit: observatory locker {{lockerNo}}, field unit 2 beaconing.", afterLine: 2 }], footer: "LODESTAR / confidential" }
+        - { heading: "Notes", lines: ["Beacon labels are sequence-numbered. Order them first."], invisible: ["check the attachment for the station config"] }
+      attachments: [{ name: groundstation.cfg, content: "station=LODESTAR-GS1\nuplink_band=UHF\nbeacon_domain=status.lodestar-field.example\n" }]
+      customInfo: { LabRef: KRL-017 }
+    exports: { lockerCode: answer }
+    rewards: { evidence: [ev-notebook] }
+    scoring: { points: 150 }
+    estimatedMinutes: 12
+    hints:
+      - { level: nudge, text: "A black box over text does not remove the text." }
+      - { level: technique, text: "pdftotext, or select-all and paste. pdfdetach lists attachments." }
+
+  # ───────────── ACT IV — THE MACHINE ─────────────
+  - id: lodestar-repo
+    round: r-machine
+    title: The repository remembers
+    primitive: git-forensics
+    gate: { node: encrypted-backup }
+    briefing: |
+      Ilse's README said the repository remembers. Here is a snapshot of `lodestar-ground` as it sits on the lab server.
+      The key was "rotated for the audit". Find the key ID that was deleted.
+    config:
+      question: What uplink key ID was removed before the audit?
+      answer: "{{keyFragment}}"
+      answerFormat: xxxx-xxxx
+      repo: lodestar-ground
+      people:
+        - { name: Ilse Varga, email: ivarga@kestrel.example.edu }
+        - { name: Theo Marsh, email: tmarsh@kestrel.example.edu }
+      history:
+        - { op: commit, label: init, author: 0, message: "Import ground-station control", date: "2026-02-20T05:12:00Z", tz: "+0530", changes: { "README.md": "# lodestar-ground\n\nCommand and telemetry for the LODESTAR cubesat.\n", "gs/command.py": "def send(cmd, key):\n    return sign(cmd, key)\n", "config/uplink.key": "KEY-ID {{keyFragment}}\n" } }
+        - { op: tag, name: v0.9-pre-audit, at: init, message: "State before the March audit", author: 0, date: "2026-02-21T06:00:00Z" }
+        - { op: commit, label: beacon, author: 0, message: "Document field-unit beacons", date: "2026-03-02T09:30:00Z", tz: "+0530", changes: { "docs/beacons.md": "# Field-unit beacons\n\nOn storm nights a field unit reports status as DNS lookups:\n`NN-<chunk>.status.lodestar-field.example`\n\nNN is a sequence number; chunks are lowercase base32 (no padding). Sort by NN, concatenate, decode.\n" } }
+        - { op: commit, label: clean, author: 1, message: "Remove debug credentials before audit", date: "2026-03-10T17:05:00Z", tz: "+0530", changes: { "config/uplink.key": null, "gs/command.py": "import os\n\ndef send(cmd, key=os.environ.get('UPLINK_KEY')):\n    return sign(cmd, key)\n" } }
+        - { op: branch, name: handover, at: clean }
+        - { op: commit, label: handover, branch: handover, author: 1, message: "wip: export key material for external partner", date: "2026-03-11T20:40:00Z", tz: "+0530", changes: { "tools/export_notes.txt": "partner wants key id + pass schedule\nref {{dealRef}}\n" } }
+        - { op: checkout, branch: main }
+        - { op: commit, label: oops, author: 1, message: "revert rotation (temporary)", date: "2026-03-13T12:34:00Z", tz: "+0530", changes: { "config/active_key": "use-previous\n" } }
+        - { op: reset, branch: main, to: clean, author: 1, date: "2026-03-13T12:36:00Z" }
+    exports: { recoveredKey: answer }
+    rewards: { evidence: [ev-repo] }
+    scoring: { points: 250 }
+    estimatedMinutes: 20
+    skills: [git]
+    hints:
+      - { level: nudge, text: "git log only shows one branch. Try --all." }
+      - { level: technique, text: "Deleted files live on in older commits: git show <commit>:<path>. And git reflog remembers resets." }
+
+  - id: gateway-capture
+    round: r-machine
+    title: What the gateway heard
+    primitive: network-capture
+    gate: { all: [{ node: lodestar-repo }, { node: ups-syslog }] }
+    briefing: |
+      IT captured traffic on the B-wing gateway during the outage. Ilse's field unit was supposed to report from
+      somewhere. Something else on the network was talking to Corvid, too.
+    config:
+      question: What fix code did Ilse's field unit report?
+      answer: "{{beaconFix}}"
+      answerFormat: 6 hex characters
+      filename: bwing_gateway_outage.pcap
+      start: "2026-03-13T21:00:00Z"
+      beacon: { host: "10.14.9.{{unitHost}}", domain: status.lodestar-field.example, message: "UNIT 2 OK POS DOME-2 FIX {{beaconFix}} BATT 64", chunk: 10, encoding: base32, offsetSec: 900, intervalSec: 11 }
+      decoys:
+        - { host: 10.14.9.201, domain: status.lodestar-backup.example, count: 8 }
+        - { host: 10.14.5.20, domain: metrics.printer-b2.example, count: 12 }
+      web:
+        - { offsetSec: 1320, client: "10.14.3.{{theoHost}}", server: 10.14.0.10, host: portal.kestrel.example.edu, path: /api/status }
+        - { offsetSec: 1400, client: "10.14.3.{{theoHost}}", server: 198.51.100.44, host: handover.corvid-aero.example, path: "/api/v1/handover?ref={{dealRef}}&stage=keys", status: 202, body: accepted }
+      noise: { lookups: 90, ntp: 10, clients: 12 }
+      resolverLog: { filename: resolver_queries.log }
+    exports: { beaconCode: answer }
+    rewards: { evidence: [ev-capture], locations: [observatory] }
+    scoring: { points: 250 }
+    estimatedMinutes: 25
+    skills: [packet analysis]
+    hints:
+      - { level: nudge, text: "Filter on dns in Wireshark and look for a domain you have seen in the notebook's attachment." }
+      - { level: technique, text: "The repository's docs/beacons.md explains the label format. Two hosts beacon to similar domains; only one is Ilse's unit." }
+
+  - id: facilities-db
+    round: r-machine
+    title: The facilities database
+    primitive: sql-investigation
+    gate: { all: [{ node: records-desk }, { node: ups-syslog }] }
+    briefing: |
+      Facilities gave you read access to a snapshot of their records: badges, door logs, Wi-Fi sessions, devices,
+      vehicles and gate events. Dana's badge opened B-114. Was Dana there?
+    config:
+      question: "Whose phone was on B-114's access point when the door opened on Dana's badge? Give the employee id."
+      answerFormat: E####
+      date: "2026-03-13"
+      nextDate: "2026-03-14"
+      staff: 80
+      building: B
+      people:
+        - { key: marsh, name: Theo Marsh, department: Robotics, title: PhD Scholar }
+        - { key: whitlock, name: Dana Whitlock, department: Facilities, title: Night Technician, badge: "{{badgeId}}" }
+        - { key: rao, name: Anand Rao, department: Robotics, title: Professor }
+        - { key: varga, name: Ilse Varga, department: Robotics, title: Research Scientist }
+      incident: { room: B-114, time: "{{wipeTime}}", badgeOf: whitlock, present: marsh, alibi: { person: whitlock, leftAt: "01:10" }, decoy: rao }
+      answerField: present.id
+    rewards: { evidence: [ev-wifi-correlation], timeline: [t-dana] }
+    scoring: { points: 250 }
+    estimatedMinutes: 25
+    skills: [SQL]
+    hints:
+      - { level: nudge, text: "access_points maps rooms to access points. wifi_sessions has connect/disconnect times." }
+      - { level: technique, text: "Join access_logs → access_points → wifi_sessions (time window) → devices → employees." }
+
+  - id: public-trail
+    round: r-trail
+    title: OrbitTalk
+    primitive: osint-trail
+    gate: { node: encrypted-backup }
+    optional: true
+    briefing: Selene Akers doesn't only send e-mail. Someone on the OrbitTalk forums has been answering her.
+    config:
+      site: forum
+      start: t/ground-station-access
+      question: "Which forum alias replied to Corvid's 'talent scout'?"
+      answer: "{{forumAlias}}"
+      pages:
+        - { path: t/ground-station-access, title: "Paid work: ground-station time wanted", kind: post, author: s.akers, date: 9 Mar, nav: true, body: "Small launch startup looking for university ground-station time. Discretion appreciated. DMs open.\n\nReplies: [3 replies](t/ground-station-access-2)" }
+        - { path: t/ground-station-access-2, title: "Re: Paid work: ground-station time wanted", kind: post, body: "**orbitnerd:** lol no\n\n**{{forumAlias}}:** Depends what you pay. I can get you a pass or two. See my [profile](u/member-2291).\n\n**s.akers:** Check your inbox." }
+        - { path: u/member-2291, title: "{{forumAlias}}", kind: profile, body: "Builds ground stations at a university lab. Talks: *LODESTAR — cheap UHF uplinks* (Campus Space Day, Feb). Sysadmin by necessity." }
+        - { path: events/campus-space-day, title: Campus Space Day — programme, kind: page, nav: true, body: "14:00 — LODESTAR: cheap UHF uplinks — T. Marsh (Kestrel Lab)\n\n15:00 — Radio club open house" }
+    rewards: { evidence: [ev-forum], resources: { intel: 2 } }
+    scoring: { points: 100 }
+    estimatedMinutes: 12
+    hints:
+      - { level: nudge, text: "Follow the replies, then the profile, then the talk it mentions." }
+
+  # ───────────── ACT V — THE INQUEST ─────────────
+  - id: interview-whitlock
+    round: r-inquest
+    title: Interview — Dana Whitlock
+    primitive: interview
+    gate: { node: records-desk }
+    briefing: Dana agreed to talk. She knows her badge opened B-114.
+    config:
+      suspect: whitlock
+      name: Dana Whitlock
+      intro: "\"I know what the door log says. Ask me whatever you want.\""
+      topics:
+        - { id: where, question: "Where were you during the outage?", answer: "Home. I left early — my shift ended at one. Check the gate camera.", kind: truth }
+        - { id: badge, question: "How did your badge open B-114 at night?", answer: "I reported my badge sleeve missing on Tuesday. The badge was in it.", kind: truth }
+        - { id: who, question: "Who might have had your badge?", answer: "...I'd rather not guess.", kind: evasive, requires: { asked: badge } }
+        - { id: ilse, question: "Did Ilse say anything to you recently?", answer: "She said to be careful who I help. I thought she meant the help desk tickets.", kind: truth }
+      confrontations:
+        - evidence: ev-door-log
+          response: "That's my badge, yes. It wasn't me holding it."
+        - evidence: ev-wifi-correlation
+          response: "So you can see I was gone. ...Theo borrowed my badge on Tuesday. He said a door reader needed a test card. He never gave it back."
+          reveals: { evidence: [ev-whitlock-statement], flags: { whitlock-cleared: true } }
+      deflect: "I don't see what that has to do with me."
+      goal: { contradictions: [], flags: [whitlock-cleared] }
+    redHerring: whitlock-badge
+    scoring: { points: 150 }
+    estimatedMinutes: 10
+    hints:
+      - { level: nudge, text: "Her story only changes when you can prove where she was." }
+
+  - id: interview-rao
+    round: r-inquest
+    title: Interview — Prof. Anand Rao
+    primitive: interview
+    gate: { node: records-desk }
+    optional: true
+    briefing: The lab director is not pleased to be asked. Everyone knows he fought with Ilse over the grant.
+    config:
+      suspect: rao
+      name: Prof. Anand Rao
+      intro: "\"I have fifteen minutes.\""
+      topics:
+        - { id: grant, question: "You disputed the grant credit with Dr. Varga.", answer: "Loudly. It's academia. It is not a motive for — whatever you think happened.", kind: truth }
+        - id: where
+          question: "Where were you on the night of the storm?"
+          answer: "Presenting in Pune. My session was at nine. The conference app has the check-in, and my flight was the next afternoon."
+          kind: truth
+          reveals: { evidence: [ev-rao-travel], flags: { rao-cleared: true } }
+        - { id: theo, question: "How is Theo Marsh as a student?", answer: "Brilliant and broke. He asked me for a stipend advance twice this term.", kind: truth, requires: { asked: where } }
+      confrontations:
+        - { evidence: ev-corvid-offer, response: "Corvid? They cold-called me in January. I said no. If one of my students said yes, that is a very different conversation." }
+      goal: { contradictions: [], flags: [rao-cleared] }
+    redHerring: rao-grant
+    rewards: { resources: { intel: 1 } }
+    scoring: { points: 60 }
+    estimatedMinutes: 6
+
+  - id: night-timeline
+    round: r-inquest
+    title: Reconstruct the night
+    primitive: timeline
+    gate: { all: [{ node: ups-syslog }, { node: records-desk }] }
+    briefing: Every source kept its own clock. Put the night in order, in lab time — and set aside the claim the evidence contradicts.
+    config:
+      referenceTz: IST (UTC+05:30)
+      events:
+        - { id: e-dana-out, label: "Dana Whitlock's car leaves by the North Gate", source: Gate plate camera, shown: "01:10:22 IST", trueTime: "01:10", confidence: high }
+        - { id: e-storm, label: Mains fails; UPS on battery, source: UPS event log, shown: "{{stormUtc}}:05 UTC", trueTime: "{{stormTime}}", confidence: high }
+        - { id: e-door, label: B-114 opens on Dana's badge, source: Door controller, shown: "{{wipeTime | addmin:3}}:13 (controller runs 3 min fast)", trueTime: "{{wipeTime}}", confidence: medium }
+        - { id: e-wipe, label: Secure erase starts on Varga's workstation, source: Workstation syslog, shown: "{{wipeUtc}}:41 (host clock UTC)", trueTime: "{{wipeTime | addmin:1}}", confidence: high }
+        - { id: e-photo, label: Whiteboard photographed on a Pixel 7, source: EXIF, shown: "{{photoUtc}}:42 +00:00", trueTime: "{{photoUtc | addmin:330}}", confidence: high, requiresEvidence: ev-whiteboard }
+        - { id: e-tx, label: The 03:14 transmission, source: Radio club log, shown: "03:14 IST", trueTime: "03:14", confidence: high }
+        - { id: e-claim, label: "Theo Marsh: asleep at home from midnight", source: Interview, shown: "00:00–07:00 (claimed)", trueTime: "00:30", confidence: low, contradictory: true, requiresEvidence: ev-marsh-statement }
+    rewards: { evidence: [], flags: { timeline-fixed: true } }
+    scoring: { points: 250 }
+    estimatedMinutes: 15
+    hints:
+      - { level: nudge, text: "Convert every UTC time to IST (+5:30) and fix the fast clock first." }
+      - { level: technique, text: "One card is a claim, not an event. The evidence contradicts it." }
+
+  - id: interview-marsh
+    round: r-inquest
+    title: Interview — Theo Marsh
+    primitive: interview
+    gate: { all: [{ node: facilities-db }, { node: encrypted-backup }] }
+    briefing: Theo is helpful, talkative and very sure of his story. Break it with evidence, not accusations.
+    config:
+      suspect: marsh
+      name: Theo Marsh
+      intro: "\"Happy to help. Ilse's my friend — whatever you need.\""
+      topics:
+        - { id: where, question: "Where were you between two and three a.m.?", answer: "Asleep at home from midnight. The storm didn't even wake me.", kind: lie }
+        - { id: key, question: "Tell me about the uplink key rotation.", answer: "Routine audit prep. I rotated it, cleaned the repo. Standard hygiene.", kind: evasive }
+        - { id: badge, question: "Did you ever borrow Dana Whitlock's badge?", answer: "Once, weeks ago, to test a reader. Gave it right back.", kind: lie, requires: { asked: where } }
+        - { id: corvid, question: "Who is Corvid Aerospace to you?", answer: "Never heard of them.", kind: lie, requires: { evidence: ev-corvid-offer } }
+        - { id: dome, question: "Why did you write 'BEACON -> DOME 2' on the whiteboard?", answer: "...That's Ilse's thing, not mine.", kind: evasive, requires: { evidence: ev-whiteboard } }
+      confrontations:
+        - evidence: ev-wifi-correlation
+          response: "...Okay. I was in the lab. For ten minutes. I was checking the UPS."
+          contradiction: { id: marsh-alibi, label: "Marsh's 'asleep at home' vs. his phone on B-114's access point", breaks: where }
+          reveals: { evidence: [ev-marsh-statement] }
+        - evidence: ev-corvid-offer
+          requires: { asked: corvid }
+          response: "That offer was never — look, I didn't give them anything. Not yet."
+          contradiction: { id: marsh-corvid, label: "Marsh 'never heard of' Corvid vs. their deal e-mail to him", breaks: corvid }
+        - evidence: ev-whitlock-statement
+          response: "Dana's confused. She lent it to me for the reader test, that's all."
+          contradiction: { id: marsh-badge, label: "Marsh 'gave it right back' vs. Whitlock's statement", breaks: badge }
+        - { evidence: ev-repo, response: "Reverting a rotation isn't a crime. I needed the old key for a... test." }
+      deflect: "Is that supposed to mean something to me?"
+      goal: { contradictions: [marsh-alibi, marsh-corvid], flags: [] }
+    rewards: { evidence: [] }
+    scoring: { points: 250 }
+    estimatedMinutes: 15
+    hints:
+      - { level: nudge, text: "Ask first. Contradictions only count against things he actually said." }
+      - { level: technique, text: "The facilities database and the backup e-mail each break one of his claims." }
+
+  - id: case-board
+    round: r-inquest
+    title: Wire the board
+    primitive: board-deduction
+    gate: { node: interview-marsh }
+    briefing: A theory is only as good as its string. Wire the evidence board, then submit it for analysis.
+    config:
+      prompt: "Connect exhibits to people and places. Label each string with the relationship it proves (implicates, alibi-for, motive-for, places-at, …). Submit when at least five relationships are supported."
+      required: 5
+      maxUnsupported: 3
+    scoring: { points: 250 }
+    estimatedMinutes: 15
+    hints:
+      - { level: nudge, text: "Who does the Wi-Fi correlation implicate — and whose alibi does it prove?" }
+      - { level: technique, text: "Useful labels: implicates, alibi-for, motive-for, places-at, contradicts." }
+
+  # ───────────── ACT VI — CAMPUS ─────────────
+  - id: observatory
+    round: r-campus
+    title: Dome 2
+    primitive: qr-checkpoint
+    gate: { node: gateway-capture }
+    briefing: |
+      Ilse's field unit reported from **DOME-2**. Go to the Old Observatory on the east lawn and find the DOSSIER
+      station by Dome 2. Scan its code. Stay on the paths — the dome interior is closed.
+    config:
+      checkpoint: observatory-dome
+      prompt: The station volunteer has something of Ilse's for teams that make it.
+    rewards: { evidence: [ev-field-kit] }
+    scoring: { points: 150 }
+    estimatedMinutes: 15
+
+  - id: radio-mast
+    round: r-campus
+    title: The old radio mast
+    primitive: gps-checkpoint
+    gate: { node: observatory }
+    optional: true
+    briefing: The field unit's antenna feeds from the old radio mast on the quad. Check in from the mast.
+    config: { checkpoint: radio-mast, maxAccuracyM: 60, prompt: "Stand near the base of the mast (public lawn)." }
+    rewards: { resources: { intel: 1, hints: 1 } }
+    scoring: { points: 60 }
+    estimatedMinutes: 8
+
+  # ───────────── ACT VII — THE LAST TRANSMISSION ─────────────
+  - id: final
+    round: r-final
+    title: The last transmission
+    primitive: final-reconstruction
+    gate: { all: [{ checkpoint: observatory-dome }, { node: case-board }, { node: night-timeline }] }
+    briefing: |
+      File your reconstruction of the night. Every finding is checked; you learn how many held, never which.
+      Only a coherent reconstruction earns the full outcome.
+    config:
+      prompt: "Name the culprit, the motive, the method, where and when it happened, the evidence that proves it, and Ilse's final code."
+      maxAttempts: 3
+      penalties: [0, 75, 150]
+      coherenceBonus: 400
+      fields:
+        - { id: culprit, label: Culprit, type: suspect, options: [{ id: marsh, label: Theo Marsh }, { id: whitlock, label: Dana Whitlock }, { id: rao, label: Prof. Anand Rao }], answer: [marsh], points: 250 }
+        - id: motive
+          label: Motive
+          type: choice
+          options:
+            - { id: corvid, label: Traded ground-station access to Corvid Aerospace to clear debts }
+            - { id: grant, label: Wanted sole credit for the LODESTAR grant }
+            - { id: grudge, label: A personal grudge against Ilse }
+            - { id: accident, label: An accident covered up in panic }
+          answer: [corvid]
+          points: 150
+        - id: method
+          label: Method
+          type: choice
+          options:
+            - { id: badge-wipe, label: "Entered B-114 on Dana Whitlock's badge during the outage and wiped the workstation" }
+            - { id: remote, label: Wiped the workstation remotely over VPN }
+            - { id: own-badge, label: Used their own badge before the storm }
+            - { id: insider-it, label: Asked IT to reimage the machine }
+          answer: [badge-wipe]
+          points: 150
+        - { id: location, label: Where, type: location, options: [{ id: b114, label: Server Room B-114 }, { id: kestrel-lab, label: Kestrel Robotics Lab }, { id: observatory, label: Old Observatory }, { id: radio-club, label: Radio Club Shack }], answer: [b114], points: 100 }
+        - { id: time, label: "When the wipe began (IST)", type: time, answer: ["{{wipeTime}}"], points: 150, toleranceMinutes: 2 }
+        - { id: evidence, label: Key evidence, type: evidence, answer: [ev-wifi-correlation, ev-whiteboard, ev-marsh-statement], points: 100 }
+        - { id: code, label: "Ilse's final code (KEY-FIX-LOCKER)", type: code, answer: ["{{recoveredKey}}-{{beaconCode}}-{{lockerCode}}"], points: 200 }
+    scoring: { points: 0 }
+    estimatedMinutes: 20
+
+evidence:
+  - { id: ev-briefing, title: Case briefing, kind: document, gate: { always: true }, summary: What we know at the start., body: "Dr. Ilse Varga is missing. Her workstation in B-114 was wiped during last night's storm. The radio club logged a burst at 03:14.", about: { characters: [varga], locations: [b114, radio-club] } }
+  - { id: ev-radio-log, title: Radio club log, kind: record, summary: "The 03:14 burst, transcribed.", body: "Preamble key **{{codeword}}**. Portal name **{{portalWord}}**. Duration 41 s. Operator: 'sounded deliberate'.", about: { characters: [varga], locations: [radio-club] } }
+  - { id: ev-roster, title: B-114 access roster, kind: record, body: "Badges with B-114 access: Theo Marsh, Dana Whitlock, Prof. Anand Rao.", about: { characters: [marsh, whitlock, rao], locations: [b114] } }
+  - { id: ev-portal-note, title: Portal maintenance passphrase, kind: record, body: "The portal client assembles a maintenance passphrase from four fragments. You recovered it.", about: { locations: [kestrel-lab] } }
+  - { id: ev-unsent-note, title: "Ilse's unsent note to Dana", kind: message, body: "\"If anything happens to me, don't let them blame you. Theo asked to borrow your badge again. My notebook has the rest.\"", about: { characters: [varga, whitlock, marsh] } }
+  - { id: ev-door-log, title: B-wing door controller export, kind: log, summary: "Dana Whitlock's badge opened B-114 twice during the outage.", body: "Badge {{badgeId}} (Dana Whitlock) GRANTED at B-114 twice during the outage. The controller clock runs 3 minutes fast.", about: { characters: [whitlock], locations: [b114] } }
+  - { id: ev-whiteboard, title: B-114 whiteboard photo, kind: photo, summary: Taken on Theo Marsh's Pixel minutes after the door opened., body: "\"UPLINK KEY - ROTATE BACK? / CA CALL FRI 18:00 / BEACON -> DOME 2 / DONT TELL ILSE\". EXIF owner: t.marsh.", about: { characters: [marsh], locations: [b114] } }
+  - { id: ev-transmission, title: The 03:14 recording, kind: audio, summary: "Morse on the left channel, touch-tones and a spectrogram message on the right.", body: "Transmission key recovered: Ilse's backup password.", about: { characters: [varga], locations: [radio-club] } }
+  - { id: ev-wipe-log, title: UPS and workstation logs, kind: log, summary: tmarsh logged in to Varga's workstation and started a secure erase during the outage., body: "UPS on battery from the storm. sshd: tmarsh from 10.14.3.{{theoHost}}. secure-erase started (user tmarsh).", about: { characters: [marsh, varga], locations: [b114] } }
+  - { id: ev-corvid-offer, title: Corvid Aerospace deal e-mail, kind: message, summary: "Corvid offers to settle Theo Marsh's debts on handover of uplink access.", body: "From Selene Akers to Theo Marsh, forwarded to Ilse. Deal reference {{dealRef}}.", about: { characters: [marsh, akers] } }
+  - { id: ev-notebook, title: "Ilse's lab notebook", kind: document, summary: The rotation was reverted; only Theo has repo admin., body: "Mar 13: 'Command log shows the OLD key used at 18:04. Rotation was reverted. Only T. has repo admin.'", about: { characters: [varga, marsh], locations: [observatory] } }
+  - { id: ev-repo, title: lodestar-ground history, kind: repository, summary: "Theo deleted the key file, prepared a 'handover' branch and reset away a revert.", body: "Key ID {{keyFragment}} deleted in 'Remove debug credentials before audit' (Theo Marsh). Branch 'handover' exports key material for an 'external partner'.", about: { characters: [marsh] } }
+  - { id: ev-capture, title: B-wing gateway capture, kind: capture, summary: "Ilse's field unit beaconed from Dome 2; Theo's machine called Corvid's handover API.", body: "Field unit 2: POS DOME-2 FIX {{beaconFix}}. 10.14.3.{{theoHost}} → handover.corvid-aero.example ?ref={{dealRef}}.", about: { characters: [marsh, varga], locations: [observatory] } }
+  - { id: ev-wifi-correlation, title: Facilities records correlation, kind: database, summary: "Theo's phone was on B-114's access point when Dana's badge opened the door; Dana's car had left at 01:10.", body: "wifi_sessions × access_points × devices: Theo Marsh's phone on B1-AP-114 across the door event. North Gate: Whitlock's car OUT at 01:10.", about: { characters: [marsh, whitlock], locations: [b114, north-gate] } }
+  - { id: ev-forum, title: OrbitTalk thread, kind: message, summary: "Theo's forum alias offered Corvid 'a pass or two'.", body: "Alias {{forumAlias}} replied to s.akers: 'Depends what you pay.'", about: { characters: [marsh, akers] } }
+  - { id: ev-whitlock-statement, title: "Dana Whitlock's statement", kind: testimony, body: "\"Theo borrowed my badge on Tuesday for a 'reader test'. He never gave it back.\"", about: { characters: [whitlock, marsh] } }
+  - { id: ev-marsh-statement, title: "Theo Marsh's admission", kind: testimony, body: "\"I was in the lab. For ten minutes. I was checking the UPS.\"", about: { characters: [marsh], locations: [b114] } }
+  - { id: ev-rao-travel, title: "Prof. Rao's conference check-in", kind: record, body: "Conference app check-in, Pune, 21:02 IST on the night of the storm. Return flight the next afternoon.", about: { characters: [rao] } }
+  - { id: ev-field-kit, title: "Ilse's field kit", kind: object, summary: A sealed card from the observatory station., body: "The card reads: **\"If you found this, you followed the burst. My final code is KEY-FIX-LOCKER: the key ID he deleted, the fix my unit reported, and the locker I wrote down. — I.V.\"**", about: { characters: [varga], locations: [observatory] } }
+
+checkpoints:
+  - { id: observatory-dome, name: Old Observatory — Dome 2, kind: qr, location: "East lawn, by the Dome 2 door (outside)", instructions: "Find the DOSSIER sign by the Dome 2 door. Scan it while signed in.", points: 0, requiresApproval: false }
+  - { id: radio-mast, name: Old radio mast, kind: gps, location: The quad, geo: { lat: 12.97205, lon: 77.59398, radiusM: 40 }, points: 0, requiresApproval: false }
+
+relations:
+  - { from: "ev:ev-wifi-correlation", to: "sus:marsh", kind: implicates }
+  - { from: "ev:ev-wifi-correlation", to: "sus:whitlock", kind: alibi-for }
+  - { from: "ev:ev-corvid-offer", to: "sus:marsh", kind: motive-for }
+  - { from: "ev:ev-door-log", to: "loc:b114", kind: places-at }
+  - { from: "ev:ev-whiteboard", to: "sus:marsh", kind: implicates }
+  - { from: "ev:ev-wipe-log", to: "sus:marsh", kind: implicates }
+  - { from: "ev:ev-rao-travel", to: "sus:rao", kind: alibi-for }
+  - { from: "ev:ev-whitlock-statement", to: "ev:ev-marsh-statement", kind: contradicts }
+  - { from: "ev:ev-capture", to: "loc:observatory", kind: places-at }
+
+redHerrings:
+  - { id: whitlock-badge, description: "Dana Whitlock's badge opened B-114 during the outage.", plausibility: 0.8, disprovedBy: [ev-wifi-correlation, ev-whitlock-statement], supportedBy: [ev-door-log] }
+  - { id: rao-grant, description: Prof. Rao publicly fought Ilse over grant credit., plausibility: 0.6, disprovedBy: [ev-rao-travel] }
+
+hintEconomy:
+  currency: points
+  startingTokens: 0
+  costs: { nudge: 20, partial: 40, artifact: 50, technique: 60, partial-answer: 100, explicit: 150 }
+
+difficulty: { curve: aggressive }

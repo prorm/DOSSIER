@@ -14,15 +14,12 @@ import {
   submissions,
   teams,
 } from "../db/schema";
-import { env } from "../env";
 import { audit, type Actor } from "../audit";
 import { bus, topics } from "../realtime/bus";
 import { hashPassword } from "../security/crypto";
-import { makeAnswerHash } from "../security/answers";
-import { loadChallenges } from "./context";
 import { GameError } from "./errors";
 import { getLeaderboard, recomputeLeaderboard } from "./leaderboard";
-import { challengeConfig, type ChallengeConfig, type EventRow } from "./types";
+import type { EventRow } from "./types";
 
 /* ─────────────────────────── Teams ─────────────────────────── */
 
@@ -97,59 +94,6 @@ export async function listAnnouncements(db: Executor, eventId: string, limit = 2
   return db.select().from(announcements).where(eq(announcements.eventId, eventId)).orderBy(desc(announcements.createdAt)).limit(limit);
 }
 
-/* ─────────────────────────── Challenge editor ─────────────────────────── */
-
-export const ChallengeEditInput = z.object({
-  title: z.string().trim().min(1).max(100),
-  bodyMd: z.string().max(20_000),
-  category: z.string().max(63).nullable().optional(),
-  points: z.number().int().min(0).max(100_000),
-  firstBloodBonus: z.number().int().min(0).max(10_000).default(0),
-  hidden: z.boolean(),
-  hints: z.array(z.object({ cost: z.number().int().min(0).max(10_000), text: z.string().trim().min(1).max(20_000) })).max(10),
-  availableFrom: z.string().datetime({ offset: true }).nullable().optional(),
-  /** When provided, replaces all accepted answers (re-hashed). Never echoed back. */
-  newAnswers: z.array(z.string().min(1).max(500)).max(20).optional(),
-});
-
-export async function editChallenge(db: Executor, event: EventRow, id: string, input: z.infer<typeof ChallengeEditInput>, actor: Actor) {
-  const [c] = await db.select().from(challenges).where(and(eq(challenges.eventId, event.id), eq(challenges.id, id))).limit(1);
-  if (!c) throw new GameError("not_found", "Challenge not found.");
-  const cfg = challengeConfig(c);
-  const nextCfg: ChallengeConfig = {
-    ...cfg,
-    points: input.points,
-    scoring: cfg.scoring.type === "dynamic" ? { ...cfg.scoring, initial: input.points, minimum: Math.min(cfg.scoring.minimum, input.points) } : cfg.scoring,
-    first_blood_bonus: input.firstBloodBonus,
-    hints: input.hints,
-    available_from: input.availableFrom ?? undefined,
-  };
-  const patch: Partial<typeof challenges.$inferInsert> = {
-    title: input.title,
-    bodyMd: input.bodyMd,
-    category: c.mode === "ctf" ? (input.category ?? c.category) : c.category,
-    hidden: input.hidden,
-    config: nextCfg as unknown as Record<string, unknown>,
-    updatedAt: new Date(),
-  };
-  if (input.newAnswers?.length) {
-    patch.answerHashes = input.newAnswers.map((a) => makeAnswerHash(env().ANSWER_SECRET, a, c.answerType, c.normalize));
-  }
-  await db.update(challenges).set(patch).where(and(eq(challenges.eventId, event.id), eq(challenges.id, id)));
-  await audit(db, actor, "challenge.edit", {
-    eventId: event.id,
-    target: id,
-    details: {
-      changed: Object.keys(input).filter((k) => k !== "newAnswers"),
-      answersReplaced: Boolean(input.newAnswers?.length),
-      pointsFrom: cfg.points,
-      pointsTo: input.points,
-    },
-  });
-  await recomputeLeaderboard(db, event.id);
-  await bus().publish(topics.event(event.id), "content", { challengeId: id });
-}
-
 /* ─────────────────────────── Operations dashboard ─────────────────────────── */
 
 export async function dashboardStats(db: Executor, event: EventRow) {
@@ -167,7 +111,7 @@ export async function dashboardStats(db: Executor, event: EventRow) {
     db.select({ n: count() }).from(submissions).where(and(eq(submissions.eventId, event.id), gte(submissions.createdAt, since5))),
     db.select({ n: count() }).from(submissions).where(and(eq(submissions.eventId, event.id), gte(submissions.createdAt, since5), eq(submissions.correct, true))),
     getLeaderboard(db, event.id, "live"),
-    loadChallenges(db, event.id, true),
+    db.select().from(challenges).where(eq(challenges.eventId, event.id)).orderBy(challenges.sortOrder),
     db
       .select({
         challengeId: submissions.challengeId,

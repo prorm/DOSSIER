@@ -5,6 +5,8 @@ import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ArenaPanel } from "@/components/experience/front/arena-panel";
+import type { UniverseInput } from "@/lib/experience/universe";
 import CountUp from "@/components/reactbits/CountUp";
 import SplitFlapText from "@/components/reactbits/SplitFlapText";
 import { cn } from "@/lib/utils";
@@ -42,6 +44,7 @@ export function DisplayBoard({
   phase,
   endsAt,
   tint,
+  arena,
 }: {
   eventName: string;
   tagline: string;
@@ -50,6 +53,8 @@ export function DisplayBoard({
   phase: string;
   endsAt: string | null;
   tint: string;
+  /** The case opening up as teams solve it (public-safe: solve counts only). */
+  arena?: { input: UniverseInput; fingerprint: string; layoutSeed: string; accent: string; solved: number; files: number; teams: number } | null;
 }) {
   const [lb, setLb] = useState(initial);
   const [anns, setAnns] = useState(initialAnns);
@@ -92,20 +97,26 @@ export function DisplayBoard({
   }, [blood]);
 
   const rows = lb.standings.filter((s) => !s.disqualified).slice(0, 12);
-  const status = phase === "live" ? clock(endsAt, now).slice(0, 5) : phase.toUpperCase();
+  // No end time set: the board says LIVE rather than showing a dead clock.
+  const status = phase === "live" ? (endsAt ? clock(endsAt, now).slice(0, 5) : "LIVE") : phase.toUpperCase();
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-bg p-[2.2vw] text-ink">
       <AmbientTerminal tint={tint} brightness={0.35} className="opacity-60" />
-      <header className="relative flex items-end justify-between gap-6 border-b border-line pb-[1.2vw]">
+      <header className="relative z-10 flex items-end justify-between gap-6 border-b border-line pb-[1.2vw]">
         <div className="min-w-0">
           <p className="font-mono text-[1vw] uppercase tracking-[0.3em] text-mute">DOSSIER // Live standings</p>
           <h1 className="truncate font-mono text-[3.2vw] leading-none font-bold uppercase tracking-[0.04em]">{eventName}</h1>
           {tagline ? <p className="mt-[0.5vw] truncate text-[1.1vw] text-ink-dim">{tagline}</p> : null}
+          {arena ? (
+            <p className="mt-[0.5vw] font-mono text-[1.05vw] uppercase tracking-[0.18em] text-signal">
+              <span className="num">{arena.solved}</span> of <span className="num">{arena.files}</span> files opened · <span className="num">{arena.teams}</span> teams in the case
+            </p>
+          ) : null}
         </div>
         <div className="shrink-0 text-right">
           <p className="mb-[0.4vw] font-mono text-[0.9vw] uppercase tracking-[0.25em] text-mute">{phase === "live" && endsAt ? "Time left" : "Status"}</p>
-          <SplitFlapText text={status} charset="0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ " fontSize="3vw" tileColor="#111A24" textColor={tint} gap="0.25vw" tileRadius="0.3vw" loop={false} aria-label={phase === "live" && endsAt ? `Time left ${status}` : status} />
+          <SplitFlapText text={status} padTo={Math.max(5, status.length)} charset="0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ " fontSize="3vw" tileColor="#111A24" textColor={tint} gap="0.25vw" tileRadius="0.3vw" loop={false} aria-label={phase === "live" && endsAt ? `Time left ${status}` : status} />
           {lb.frozen ? (
             <p className="mt-[0.4vw] inline-flex items-center gap-[0.4vw] font-mono text-[1vw] uppercase tracking-[0.2em] text-signal-cyan">
               <Snowflake className="size-[1.1vw]" aria-hidden="true" /> Board frozen
@@ -114,7 +125,7 @@ export function DisplayBoard({
         </div>
       </header>
 
-      <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_28vw] gap-[2vw] pt-[1.4vw]">
+      <div className="relative z-10 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_28vw] gap-[2vw] pt-[1.4vw]">
         <LayoutGroup>
           <ol className="flex min-h-0 flex-col gap-[0.45vw]" aria-label="Top teams">
             {rows.map((s) => (
@@ -144,6 +155,7 @@ export function DisplayBoard({
             <Megaphone className="size-[1.1vw]" aria-hidden="true" /> Comms
           </p>
           {anns.length === 0 ? <p className="font-mono text-[1vw] text-faint">No announcements.</p> : null}
+          {arena ? <ArenaPanel input={arena.input} fingerprint={arena.fingerprint} layoutSeed={arena.layoutSeed} accent={arena.accent} solved={arena.solved} files={arena.files} className="order-last mt-auto" /> : null}
           {anns.slice(0, 4).map((a, i) => (
             <div
               key={a.id}

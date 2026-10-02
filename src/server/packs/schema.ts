@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { BlueprintT } from "../game/core/blueprint";
 
 /**
  * Content-pack schema. Everything event-specific (names, stories, answers,
@@ -283,7 +284,9 @@ export type ChallengeDef = z.infer<typeof ChallengeSchema>;
 export type StoryDef = z.infer<typeof StorySchema>;
 export type CheckpointDef = z.infer<typeof CheckpointsSchema>["checkpoints"][number];
 
+/** A v1 pack: event.yaml + challenges/*.yaml + story.yaml + checkpoints.yaml (converted to a blueprint on import). */
 export interface PackDef {
+  format: "v1";
   slug: string;
   dir: string;
   event: EventDef;
@@ -293,3 +296,16 @@ export interface PackDef {
   assets: string[];
   hash: string;
 }
+
+/** A v2 pack: dossier.yaml (a blueprint) + optional story/*.md sources + assets/. */
+export interface PackDefV2 {
+  format: "v2";
+  slug: string;
+  dir: string;
+  blueprint: BlueprintT;
+  sources: { name: string; markdown: string }[];
+  assets: string[];
+  hash: string;
+}
+
+export type AnyPack = PackDef | PackDefV2;

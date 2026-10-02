@@ -5,6 +5,7 @@ import { LockedState } from "@/components/dossier/primitives";
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/server/db/client";
 import { getActiveEvent } from "@/server/engine/event";
+import { teaserUniverse } from "@/server/game/presentation";
 import { eventView } from "@/server/views";
 
 export const metadata = { title: "Register" };
@@ -36,7 +37,7 @@ export default async function RegisterPage() {
     );
   }
   return (
-    <AuthFrame eyebrow={ev.name} title="Register your team">
+    <AuthFrame eyebrow={ev.name} title="Register your team" teaser={(() => { const t = teaserUniverse(event); return t ? { ...t, accent: ev.theme.accent } : null; })()}>
       <RegisterForm minMembers={ev.registration.minMembers} maxMembers={ev.registration.maxMembers} requiresCode={ev.registration.requiresCode} />
     </AuthFrame>
   );

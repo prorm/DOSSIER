@@ -2,7 +2,7 @@ import path from "node:path";
 import { z } from "zod";
 import { readJson, route } from "@/server/http";
 import { env } from "@/server/env";
-import { listPacks, loadPack } from "@/server/packs/load";
+import { listPacks, loadPack, packSummary } from "@/server/packs/load";
 import { importPack } from "@/server/packs/import";
 import { GameError } from "@/server/engine/errors";
 
@@ -16,10 +16,10 @@ export const GET = route({ auth: "staff", role: "admin" }, async () => {
       return {
         slug,
         valid: Boolean(r.pack),
-        name: r.pack?.event.name ?? null,
+        name: r.pack ? packSummary(r.pack).name : null,
         hash: r.pack?.hash ?? null,
-        modes: r.pack?.event.modes ?? [],
-        challenges: r.pack?.challenges.length ?? 0,
+        families: r.pack ? packSummary(r.pack).families : [],
+        challenges: r.pack ? packSummary(r.pack).nodes : 0,
         issues: r.issues,
       };
     }),

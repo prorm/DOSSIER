@@ -1,12 +1,12 @@
 import { route } from "@/server/http";
-import { teamChallenges } from "@/server/engine/play";
+import { teamOverview } from "@/server/game/engine";
 
-/** Command-palette index: only challenges the team can currently see (open/solved). */
+/** Command-palette index: only files the team can currently see (open/solved). */
 export const GET = route({ auth: "team", event: true }, async ({ db, event, team }) => {
-  const { views } = await teamChallenges(db, event!, team.team.id);
+  const o = await teamOverview(db, event!, team.team.id);
   return {
-    items: views
-      .filter((v) => v.state === "open" || v.state === "solved")
-      .map((v) => ({ id: v.id, mode: v.mode, title: "title" in v ? v.title : v.id, state: v.state, category: v.category })),
+    items: o.acts.flatMap((a) =>
+      a.rounds.flatMap((r) => r.nodes.filter((n) => n.title && (n.state === "open" || n.state === "solved")).map((n) => ({ id: n.id, mode: r.family, title: n.title!, state: n.state, category: r.title }))),
+    ),
   };
 });

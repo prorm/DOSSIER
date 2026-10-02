@@ -15,7 +15,7 @@ async function main() {
   setDbHandle(handle);
   const s = await importPack(handle.db, pack, { activate: !process.argv.includes("--no-activate") });
   console.log(
-    `✔ imported ${s.eventId}: ${s.challenges} challenges, ${s.checkpoints} checkpoints, pruned ${s.pruned}, hidden ${s.hidden}${s.activated ? " (active)" : ""}`,
+    `✔ imported ${s.eventId} v${s.version}: ${s.challenges} challenges, ${s.checkpoints} checkpoints, ${s.validation.warnings.length} warning(s)${s.activated ? " (active)" : ""}`,
   );
   await handle.close();
 }

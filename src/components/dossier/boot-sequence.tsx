@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import DecryptedText from "@/components/reactbits/DecryptedText";
+import { BOOT_COOKIE } from "@/lib/boot";
 import { cn } from "@/lib/utils";
 import { useIsClient } from "./effects";
 
-export const BOOT_COOKIE = "dossier_boot";
 
 const BASE_LINES = ["establishing uplink", "verifying session", "syncing scoreboard"];
 
@@ -29,10 +29,9 @@ export function BootSequence({ eventName, codename, lines = [] }: { eventName: s
   }, []);
 
   useEffect(() => {
-    if (suppressed) {
-      document.cookie = `${BOOT_COOKIE}=1; path=/; samesite=lax`;
-      return;
-    }
+    // Seen once is enough: navigating away mid-sequence must not replay it on the next page.
+    document.cookie = `${BOOT_COOKIE}=1; path=/; samesite=lax`;
+    if (suppressed) return;
     const step = setInterval(() => setShown((n) => n + 1), 230);
     const end = setTimeout(finish, 2000);
     const skip = () => finish();

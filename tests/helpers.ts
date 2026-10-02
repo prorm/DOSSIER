@@ -62,7 +62,7 @@ let teamSeq = 0;
 export async function makeTeam(db: DB, event: EventRow, name?: string, code = "") {
   teamSeq += 1;
   const teamName = name ?? `Team ${teamSeq} ${Math.random().toString(36).slice(2, 6)}`;
-  return registerTeam(db, event, { teamName, password: "correct horse battery", members: [{ name: "Ada" }], affiliation: "", code }, `10.0.${teamSeq % 250}.1`);
+  return registerTeam(db, event, { teamName, password: "correct horse battery", members: [{ name: "Ada" }, { name: "Grace" }], affiliation: "", code }, `10.0.${teamSeq % 250}.1`);
 }
 
 export const ORIGIN = "http://localhost:3000";

@@ -12,3 +12,7 @@ test-results/
 playwright-report/
 load/results/
 .pglite*/
+
+# Local tooling output (knowledge graph, agent workflows)
+graphify-out/
+.agents/

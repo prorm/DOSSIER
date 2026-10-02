@@ -34,18 +34,20 @@ export function proxy(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
   requestHeaders.set("content-security-policy", csp);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   const h = response.headers;
-  // Asset responses set their own (stricter, sandboxed) CSP.
-  if (!request.nextUrl.pathname.startsWith("/api/assets/")) h.set("content-security-policy", csp);
+  // Asset, artifact and synthetic-site responses set their own (stricter, isolated) CSP.
+  const own = ["/api/assets/", "/api/artifacts/", "/x/"].some((p) => request.nextUrl.pathname.startsWith(p));
+  if (!own) h.set("content-security-policy", csp);
   h.set("x-content-type-options", "nosniff");
   h.set("x-frame-options", "DENY");
   // same-origin: signed asset URLs never leak to third parties through Referer.
   h.set("referrer-policy", "same-origin");
-  // Camera is needed by the volunteer badge scanner on our own origin only.
-  h.set("permissions-policy", "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()");
+  // Camera: volunteer badge scanner. Geolocation: GPS checkpoints. Both on our own origin only.
+  h.set("permissions-policy", "camera=(self), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()");
   h.set("cross-origin-opener-policy", "same-origin");
   h.set("cross-origin-resource-policy", "same-origin");
   if (https) h.set("strict-transport-security", "max-age=31536000; includeSubDomains");

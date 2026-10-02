@@ -2,6 +2,8 @@ import { AdminShell } from "@/components/dossier/admin-client";
 import { requireStaffPage } from "@/server/page-auth";
 import { eventView } from "@/server/views";
 
+import "./ops.css";
+
 export const metadata = { title: { default: "Operations", template: "%s · Ops" } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -1,22 +1,35 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
-import { challenges, eventLog, submissions } from "../../src/server/db/schema";
+import { challenges, eventLog, events, submissions } from "../../src/server/db/schema";
 import { adjustScore, setTeamStatus } from "../../src/server/engine/admin";
 import { controlEvent } from "../../src/server/engine/event";
 import { GameError } from "../../src/server/engine/errors";
 import { getLeaderboard } from "../../src/server/engine/leaderboard";
-import { purchaseHint, submitAnswer, teamChallenges } from "../../src/server/engine/play";
+import { dispatch, nodeDetail, takeHint, teamOverview } from "../../src/server/game/engine";
 import { SYSTEM_ACTOR } from "../../src/server/audit";
 import type { DB } from "../../src/server/db/client";
 import type { EventRow } from "../../src/server/engine/types";
+import { gameStateEvents } from "../../src/server/db/schema";
 import { freshDb, importFixture, makeTeam, reloadEvent, startEvent } from "../helpers";
 
 let db: DB;
 let event: EventRow;
 
-async function stateOf(teamId: string) {
-  const { views } = await teamChallenges(db, event, teamId);
-  return Object.fromEntries(views.map((v) => [v.id, v.state]));
+async function stateOf(teamId: string, now?: Date) {
+  const o = await teamOverview(db, event, teamId, now);
+  return Object.fromEntries(o.acts.flatMap((a) => a.rounds.flatMap((r) => r.nodes)).map((v) => [v.id, v.state]));
+}
+
+/** v1-style submission through the engine (kept as a helper so the scenarios read like before). */
+async function submitAnswer(_db: DB, o: { event: EventRow; teamId: string; challengeId: string; answer: string; now?: Date }) {
+  const r = await dispatch(_db, { event: o.event, teamId: o.teamId, nodeId: o.challengeId, action: { type: "answer", value: o.answer }, now: o.now });
+  return r.correct
+    ? { status: "correct" as const, points: r.pointsDelta, firstBlood: r.firstBlood, unlocked: r.unlocked.map((u) => u.id), revealed: r.evidence.map((e) => e.id) }
+    : { status: "incorrect" as const, retryAfterMs: r.retryAfterMs, freeAttemptsLeft: r.freeAttemptsLeft ?? 0 };
+}
+
+async function purchaseHint(_db: DB, o: { event: EventRow; teamId: string; challengeId: string; index: number }) {
+  return takeHint(_db, { event: o.event, teamId: o.teamId, nodeId: o.challengeId, index: o.index });
 }
 
 async function expectError(p: Promise<unknown>, code: string) {
@@ -66,6 +79,7 @@ describe("treasure hunt unlock graph", () => {
     const t = await makeTeam(db, event);
     await expectError(submitAnswer(db, { event, teamId: t.id, challengeId: "g", answer: "golf" }), "scheduled");
     const later = new Date("2030-01-01T00:00:05Z");
+    expect((await stateOf(t.id, later)).g).toBe("open");
     const r = await submitAnswer(db, { event: { ...event, endsAt: null }, teamId: t.id, challengeId: "g", answer: "golf", now: later });
     expect(r.status).toBe("correct");
   });
@@ -80,7 +94,9 @@ describe("treasure hunt unlock graph", () => {
 describe("answer secrecy", () => {
   it("never stores plaintext answers, and keeps correct submissions out of previews", async () => {
     const rows = await db.select().from(challenges).where(eq(challenges.eventId, event.id));
-    const dump = JSON.stringify(rows.map((r) => r.answerHashes));
+    const [ev] = await db.select().from(events).where(eq(events.id, event.id));
+    // Neither the materialised rows nor the stored blueprint contain plaintext answers.
+    const dump = JSON.stringify(rows) + JSON.stringify(ev!.blueprint);
     for (const plain of ["The Red Fox", "bravo", "FLAG{One}", "FLAG{two}", "1000.5", "open sesame"]) expect(dump).not.toContain(plain);
     const correct = await db.select().from(submissions).where(eq(submissions.correct, true));
     expect(correct.length).toBeGreaterThan(0);
@@ -125,12 +141,12 @@ describe("hints, dynamic scoring, first blood, leaderboard", () => {
   it("sells hints in order, deducts the cost and reveals the text only after purchase", async () => {
     const t = await makeTeam(db, event);
     await submitAnswer(db, { event, teamId: t.id, challengeId: "a", answer: "the red fox" });
-    let view = (await teamChallenges(db, event, t.id)).views.find((v) => v.id === "b")!;
+    let view = await nodeDetail(db, event, t.id, "b");
     expect(JSON.stringify(view)).not.toContain("HINT-B-0");
     await expectError(purchaseHint(db, { event, teamId: t.id, challengeId: "b", index: 1 }), "conflict");
     const h = await purchaseHint(db, { event, teamId: t.id, challengeId: "b", index: 0 });
     expect(h.text).toBe("HINT-B-0");
-    view = (await teamChallenges(db, event, t.id)).views.find((v) => v.id === "b")!;
+    view = await nodeDetail(db, event, t.id, "b");
     expect(JSON.stringify(view)).toContain("HINT-B-0");
     expect(JSON.stringify(view)).not.toContain("HINT-B-1");
     const lb = await getLeaderboard(db, event.id, "live");
@@ -182,7 +198,8 @@ describe("hints, dynamic scoring, first blood, leaderboard", () => {
 });
 
 describe("append-only ledgers", () => {
-  it("rejects UPDATE and DELETE on event_log, submissions and audit_log", async () => {
+  it("rejects UPDATE and DELETE on event_log, submissions, audit_log and the state journal", async () => {
+    await expect(db.delete(gameStateEvents)).rejects.toThrow();
     await expect(db.update(eventLog).set({ points: 1_000_000 })).rejects.toThrow();
     await expect(db.delete(eventLog)).rejects.toThrow();
     await expect(db.delete(submissions)).rejects.toThrow();

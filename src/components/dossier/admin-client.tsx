@@ -9,6 +9,7 @@ import {
   LogOut,
   MapPinned,
   Menu,
+  Clapperboard,
   Monitor,
   Radar,
   Settings2,
@@ -37,8 +38,9 @@ interface AdminNavItem {
 }
 
 const NAV: AdminNavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: Activity },
+  { href: "/admin", label: "Control room", icon: Activity },
   { href: "/admin/event", label: "Event control", icon: Settings2 },
+  { href: "/studio", label: "Studio", icon: Clapperboard },
   { href: "/admin/challenges", label: "Challenges", icon: Flag },
   { href: "/admin/teams", label: "Teams", icon: Users },
   { href: "/admin/submissions", label: "Submissions", icon: FileSearch },
@@ -80,7 +82,8 @@ function LinkState() {
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-[0.62rem] uppercase tracking-[0.12em] text-mute" role="status">
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", s === "live" ? "bg-signal-green" : s === "polling" ? "bg-signal-amber" : "bg-signal-magenta")} />
-      {s}
+      {/* The phase chip says LIVE; the link names itself only when it is degraded. */}
+      {s === "live" ? <span className="sr-only">link live</span> : s}
     </span>
   );
 }

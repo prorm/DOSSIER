@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type ReactNode } from "react";
 
+import { FrontBackdrop } from "@/components/experience/front/front-backdrop";
 import LatticeLoader from "@/components/reactbits/LatticeLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, ApiError, formatDuration } from "@/lib/api";
+import type { UniverseInput } from "@/lib/experience/universe";
 
 function Field({ label, children, hint, error, id }: { label: string; children: ReactNode; hint?: ReactNode; error?: string | null; id: string }) {
   return (
@@ -246,15 +248,23 @@ export function StaffLoginForm() {
   );
 }
 
-export function AuthFrame({ title, eyebrow, children, aside }: { title: string; eyebrow: string; children: ReactNode; aside?: ReactNode }) {
+export interface FrontTeaser {
+  input: UniverseInput;
+  fingerprint: string;
+  layoutSeed: string;
+  accent: string;
+}
+
+/** The sign-in and registration frame. With a teaser it sits in front of the event's own universe. */
+export function AuthFrame({ title, eyebrow, children, aside, teaser }: { title: string; eyebrow: string; children: ReactNode; aside?: ReactNode; teaser?: FrontTeaser | null }) {
   return (
     <main id="main" className="relative grid min-h-dvh place-items-center px-4 py-10">
-      <div aria-hidden="true" className="grid-bg absolute inset-0 opacity-40 [mask-image:radial-gradient(60%_60%_at_50%_40%,#000,transparent)]" />
-      <div className="relative w-full max-w-md">
+      {teaser ? <FrontBackdrop {...teaser} veil="centre" /> : <div aria-hidden="true" className="grid-bg absolute inset-0 opacity-40 [mask-image:radial-gradient(60%_60%_at_50%_40%,#000,transparent)]" />}
+      <div className="relative z-10 w-full max-w-md">
         <Link href="/" className="mb-6 inline-block font-mono text-[0.7rem] uppercase tracking-[0.18em] text-mute hover:text-ink">
           ‹ DOSSIER
         </Link>
-        <div className="panel brackets p-5 sm:p-7">
+        <div className="panel brackets bg-[color-mix(in_srgb,var(--color-surface)_84%,transparent)] p-5 backdrop-blur-md sm:p-7">
           <p className="label-mono">{eyebrow}</p>
           <h1 className="mt-1 mb-6 text-xl font-semibold uppercase tracking-[0.04em]">{title}</h1>
           {children}

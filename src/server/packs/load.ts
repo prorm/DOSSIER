@@ -10,11 +10,13 @@ import {
   ID,
   StorySchema,
   type ChallengeDef,
+  type AnyPack,
   type CheckpointDef,
   type EventDef,
-  type PackDef,
+  type PackDefV2,
   type StoryDef,
 } from "./schema";
+import { Blueprint, type BlueprintT } from "../game/core/blueprint";
 
 export interface PackIssue {
   severity: "error" | "warning";
@@ -26,7 +28,7 @@ export interface PackIssue {
 }
 
 export interface PackLoadResult {
-  pack: PackDef | null;
+  pack: AnyPack | null;
   issues: PackIssue[];
 }
 
@@ -167,6 +169,12 @@ export async function loadPack(packsDir: string, slug: string): Promise<PackLoad
     if (!(await fs.stat(dir)).isDirectory()) throw new Error();
   } catch {
     return { pack: null, issues: [{ severity: "error", file: dir, path: "", message: "pack directory not found" }] };
+  }
+
+  try {
+    if ((await fs.stat(path.join(dir, "dossier.yaml"))).isFile()) return loadPackV2(dir, slug);
+  } catch {
+    /* not a v2 pack */
   }
 
   const files = new Map<string, ParsedFile>();
@@ -339,9 +347,31 @@ export async function loadPack(packsDir: string, slug: string): Promise<PackLoad
   const hasErrors = issues.some((i) => i.severity === "error");
   if (hasErrors || !event) return { pack: null, issues };
   return {
-    pack: { slug, dir, event, story, challenges, checkpoints, assets, hash: hash.digest("hex").slice(0, 16) },
+    pack: { format: "v1", slug, dir, event, story, challenges, checkpoints, assets, hash: hash.digest("hex").slice(0, 16) },
     issues,
   };
+}
+
+/** v2 pack: dossier.yaml is a blueprint; story/*.md are the narrative sources it was compiled from. */
+async function loadPackV2(dir: string, slug: string): Promise<PackLoadResult> {
+  const issues: PackIssue[] = [];
+  const file = await readYaml(dir, "dossier.yaml", issues);
+  if (!file) return { pack: null, issues: issues.length ? issues : [{ severity: "error", file: "dossier.yaml", path: "", message: "cannot read dossier.yaml" }] };
+  const bp = validate(Blueprint, file, file.data, issues) as BlueprintT | null;
+  if (bp && bp.event.id !== slug) issues.push({ severity: "error", file: "dossier.yaml", ...locate(file, ["event", "id"]), path: "event.id", message: `id "${bp.event.id}" must match the pack folder name "${slug}"` });
+  const sources: { name: string; markdown: string }[] = [];
+  for (const rel of (await listFiles(dir, "story")).filter((f) => f.endsWith(".md"))) {
+    const st = await fs.stat(path.join(dir, rel));
+    if (st.size > MAX_FILE_BYTES) issues.push({ severity: "error", file: rel, path: "", message: "file too large" });
+    else sources.push({ name: rel.replace(/^story\//, ""), markdown: await fs.readFile(path.join(dir, rel), "utf8") });
+  }
+  const assets = await listFiles(dir, "assets");
+  const hash = createHash("sha256").update(await fs.readFile(path.join(dir, "dossier.yaml")));
+  for (const s of sources) hash.update(s.name).update(s.markdown);
+  for (const a of assets) hash.update(a).update(await fs.readFile(path.join(dir, a)));
+  if (!bp || issues.some((i) => i.severity === "error")) return { pack: null, issues };
+  const pack: PackDefV2 = { format: "v2", slug, dir, blueprint: bp, sources, assets, hash: hash.digest("hex").slice(0, 16) };
+  return { pack, issues };
 }
 
 export async function listPacks(packsDir: string): Promise<string[]> {
@@ -356,4 +386,18 @@ export async function listPacks(packsDir: string): Promise<string[]> {
 export function formatIssue(i: PackIssue): string {
   const where = [i.file, i.line !== undefined ? `${i.line}:${i.column ?? 1}` : null].filter(Boolean).join(":");
   return `${i.severity === "error" ? "✖" : "⚠"} ${where}${i.path ? ` (${i.path})` : ""} — ${i.message}`;
+}
+
+/** Format-agnostic summary for listings. */
+export function packSummary(pack: AnyPack): { name: string; format: "v1" | "v2"; nodes: number; checkpoints: number; families: string[]; hasStory: boolean } {
+  if (pack.format === "v2")
+    return {
+      name: pack.blueprint.event.title,
+      format: "v2",
+      nodes: pack.blueprint.nodes.length,
+      checkpoints: pack.blueprint.checkpoints.length,
+      families: [...new Set(pack.blueprint.rounds.map((r) => r.family))],
+      hasStory: pack.blueprint.story.characters.length > 0,
+    };
+  return { name: pack.event.name, format: "v1", nodes: pack.challenges.length, checkpoints: pack.checkpoints.length, families: [...new Set(pack.challenges.map((c) => c.mode))], hasStory: Boolean(pack.story) };
 }

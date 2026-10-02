@@ -1,205 +1,189 @@
-import { and, count, eq } from "drizzle-orm";
-import { ArrowRight, Binary, Crosshair, FolderSearch, MapPinned, Megaphone, Trophy } from "lucide-react";
+import { FolderSearch, Megaphone, Radio, Trophy } from "lucide-react";
 import Link from "next/link";
 
 import { Countdown } from "@/components/dossier/countdown";
+import { LocalTime } from "@/components/dossier/local-time";
 import { Markdown } from "@/components/dossier/markdown";
-import { EmptyState, PageHeader, Panel, SectionTitle } from "@/components/dossier/primitives";
-import SpotlightCard from "@/components/reactbits/SpotlightCard";
+import { EmptyState, SectionTitle } from "@/components/dossier/primitives";
+import { DeckCounts, OpenFiles } from "@/components/experience/deck/deck";
 import { Badge } from "@/components/ui/badge";
+import { nodeHref } from "@/lib/modes";
 import { cn } from "@/lib/utils";
-import { checkpointScans, checkpoints } from "@/server/db/schema";
 import { listAnnouncements } from "@/server/engine/admin";
 import { eventPhase } from "@/server/engine/event";
-import { caseFile } from "@/server/engine/inquest";
 import { getLeaderboard } from "@/server/engine/leaderboard";
-import { teamChallenges } from "@/server/engine/play";
+import { teamOverview } from "@/server/game/engine";
 import { requireTeamPage } from "@/server/page-auth";
 import { eventView } from "@/server/views";
-import { LocalTime } from "@/components/dossier/local-time";
 
 export const metadata = { title: "Console" };
 
+/**
+ * The deck. The investigation itself is the page: the case universe fills the
+ * screen behind, and these panels are the instruments floating over it — where
+ * am I, what is my objective, what can I open, what just changed.
+ */
 export default async function ConsoleHome() {
   const { session, event, db } = await requireTeamPage("/play");
   const ev = eventView(event);
   const teamId = session.team.id;
-  const [{ views }, lb, anns, file, [cpTotal], [cpDone]] = await Promise.all([
-    teamChallenges(db, event, teamId),
-    getLeaderboard(db, event.id, "public"),
-    listAnnouncements(db, event.id, 6),
-    ev.modes.includes("inquest") ? caseFile(db, event, teamId) : Promise.resolve(null),
-    db.select({ n: count() }).from(checkpoints).where(eq(checkpoints.eventId, event.id)),
-    db.select({ n: count() }).from(checkpointScans).where(and(eq(checkpointScans.teamId, teamId), eq(checkpointScans.status, "confirmed"))),
-  ]);
+  const [o, lb, anns] = await Promise.all([teamOverview(db, event, teamId), getLeaderboard(db, event.id, "public"), listAnnouncements(db, event.id, 5)]);
   const phase = eventPhase(event);
-  const stat = (mode: "hunt" | "ctf" | "inquest") => {
-    const list = views.filter((v) => v.mode === mode);
-    return { solved: list.filter((v) => v.state === "solved").length, total: list.length, open: list.filter((v) => v.state === "open").length };
-  };
   const top = lb.standings.filter((s) => !s.disqualified).slice(0, 5);
   const me = lb.standings.find((s) => s.teamId === teamId);
-
-  const tiles = [
-    ev.modes.includes("hunt") && {
-      href: "/play/hunt",
-      icon: Crosshair,
-      title: ev.hunt.title,
-      kicker: "Treasure hunt",
-      ...stat("hunt"),
-      line: `${stat("hunt").open} open node${stat("hunt").open === 1 ? "" : "s"}`,
-    },
-    ev.modes.includes("ctf") && { href: "/play/ctf", icon: Binary, title: "Flag board", kicker: "Capture the flag", ...stat("ctf"), line: `${stat("ctf").open} flags waiting` },
-    ev.modes.includes("inquest") &&
-      file && {
-        href: "/play/inquest",
-        icon: FolderSearch,
-        title: file.case.title,
-        kicker: "Criminal inquest",
-        solved: file.evidence.length,
-        total: file.evidence.length + file.sealedCount,
-        open: 0,
-        line: file.accusation.solved ? "Verdict locked in" : file.accusation.locked ? "No attempts left" : `${file.accusation.maxAttempts - file.accusation.attemptsUsed} accusation attempts left`,
-        unit: "evidence",
-      },
-    ev.modes.includes("live") && {
-      href: "/play/live",
-      icon: MapPinned,
-      title: "Field checkpoints",
-      kicker: "Live",
-      solved: cpDone?.n ?? 0,
-      total: cpTotal?.n ?? 0,
-      open: 0,
-      line: "Scan station codes around campus",
-      unit: "confirmed",
-    },
-  ].filter(Boolean) as { href: string; icon: typeof Crosshair; title: string; kicker: string; solved: number; total: number; open: number; line: string; unit?: string }[];
+  const standby = phase === "standby" && session.team.kind !== "playtest";
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow={<>Operative console · {session.team.name}</>}
-        title={ev.name}
-        actions={
-          phase === "live" && ev.endsAt ? (
-            <div className="panel px-3 py-2 text-right">
+    <div className="mx-auto w-full max-w-[1500px]">
+      {/* On phones the universe owns the first screen; the instruments slide up over it. */}
+      <div className="pointer-events-none h-[44dvh] md:hidden" aria-hidden="true" />
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,370px)_minmax(0,1fr)_minmax(0,310px)]">
+        {/* ── left: the case, the objective, what's open ── */}
+        <section className="pointer-events-auto space-y-5 md:max-h-[calc(100dvh-8rem)] md:overflow-y-auto md:pr-1 md:[scrollbar-width:none]" aria-label="Case">
+          <header className="space-y-3">
+            <p className="label-mono flex flex-wrap items-center gap-2">
+              {o.story.codename ? `${o.story.codename} · ` : ""}Operative console · {session.team.name}
+              {session.team.kind === "playtest" ? <Badge variant="warning">playtest</Badge> : null}
+            </p>
+            <h1 className="text-balance font-display text-3xl leading-[1.02] font-semibold sm:text-[2.6rem]">{o.story.title || ev.name}</h1>
+            <p className="max-w-md text-sm text-ink-dim">{o.story.premise || ev.tagline}</p>
+            <DeckCounts solved={o.counts.solved} total={o.counts.total} evidence={o.counts.evidence} evidenceTotal={o.counts.evidenceTotal} />
+          </header>
+
+          <section aria-labelledby="obj" className="panel hud-glass brackets p-4 sm:p-5">
+            <p id="obj" className="label-mono">
+              Current objective
+            </p>
+            <h2 className="mt-2 font-display text-lg font-semibold uppercase tracking-[0.04em]">{o.objective.title}</h2>
+            <p className="mt-1 text-sm text-ink-dim">{o.objective.detail}</p>
+          </section>
+
+          <section aria-labelledby="open">
+            <SectionTitle id="open" meta={`${o.counts.open} open`}>
+              Open files
+            </SectionTitle>
+            {o.counts.open === 0 ? (
+              <EmptyState compact title={standby ? "Standing by" : "Nothing open"}>
+                {standby ? "Files open when the event starts." : "Tap a hidden file on the map to see what it needs."}
+              </EmptyState>
+            ) : (
+              <OpenFiles />
+            )}
+          </section>
+
+          {o.story.briefing ? (
+            <details className="panel hud-glass group p-4" open={o.counts.solved === 0}>
+              <summary className="label-mono flex cursor-pointer list-none items-center gap-2 text-ink-dim marker:hidden">
+                <FolderSearch className="size-3.5" aria-hidden="true" /> Case briefing
+              </summary>
+              <Markdown className="mt-3">{o.story.briefing}</Markdown>
+            </details>
+          ) : null}
+        </section>
+
+        <div className="hidden md:block" aria-hidden="true" />
+
+        {/* ── right: clock, what changed, standings, comms ── */}
+        <aside className="pointer-events-auto space-y-5 md:max-h-[calc(100dvh-8rem)] md:overflow-y-auto md:pl-1 md:[scrollbar-width:none]" aria-label="Situation">
+          {phase === "live" && ev.endsAt ? (
+            <div className="panel hud-glass flex items-baseline justify-between px-4 py-3">
               <p className="label-mono">Time remaining</p>
-              <Countdown to={ev.endsAt} label="Time remaining" className="text-lg font-semibold text-ink" />
+              <Countdown to={ev.endsAt} label="Time remaining" className="font-display text-2xl font-semibold text-ink" />
             </div>
           ) : phase === "standby" && ev.startsAt ? (
-            <div className="panel px-3 py-2 text-right">
+            <div className="panel hud-glass flex items-baseline justify-between px-4 py-3">
               <p className="label-mono">Starts in</p>
-              <Countdown to={ev.startsAt} label="Starts in" className="text-lg font-semibold text-signal-2" />
+              <Countdown to={ev.startsAt} label="Starts in" className="font-display text-2xl font-semibold text-signal-2" />
             </div>
-          ) : null
-        }
-      >
-        {ev.tagline}
-      </PageHeader>
+          ) : null}
 
-      <section aria-labelledby="ops">
-        <SectionTitle id="ops">Operations</SectionTitle>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {tiles.map((t) => {
-            const pct = t.total ? t.solved / t.total : 0;
-            return (
-              <li key={t.href}>
-                <SpotlightCard className="panel pressable h-full hover:border-line-strong">
-                  <Link href={t.href} className="flex h-full flex-col gap-3 p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                      <span className="label-mono flex items-center gap-2">
-                        <t.icon className="size-3.5" aria-hidden="true" /> {t.kicker}
-                      </span>
-                      <ArrowRight className="size-4 text-mute" aria-hidden="true" />
+          <section aria-labelledby="feed">
+            <SectionTitle id="feed">What changed</SectionTitle>
+            {o.feed.length === 0 ? (
+              <EmptyState compact title="Quiet so far">
+                Unlocks, evidence and discoveries appear here as they happen.
+              </EmptyState>
+            ) : (
+              <ol className="panel hud-glass max-h-72 divide-y divide-line overflow-y-auto">
+                {o.feed.slice(0, 20).map((f) => (
+                  <li key={f.seq} className="flex gap-3 px-3 py-2.5">
+                    <span
+                      aria-hidden="true"
+                      className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", f.type === "node.solved" ? "bg-signal-green" : f.type === "evidence.gained" ? "bg-signal-cyan" : f.type === "node.unlocked" ? "bg-[var(--accent)]" : "bg-mute")}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[0.82rem] leading-snug text-ink">
+                        {f.node && f.type.startsWith("node.") ? (
+                          <Link href={nodeHref(f.node)} className="hover:underline">
+                            {f.text}
+                          </Link>
+                        ) : (
+                          f.text
+                        )}
+                      </p>
+                      <p className="font-mono text-[0.6rem] text-faint">
+                        <LocalTime iso={f.at} />
+                      </p>
                     </div>
-                    <h3 className="font-mono text-lg font-semibold">{t.title}</h3>
-                    <div className="mt-auto">
-                      <div className="mb-1.5 flex items-baseline justify-between font-mono text-xs">
-                        <span className="text-mute">{t.line}</span>
-                        <span className="num">
-                          <span className="text-signal">{t.solved}</span>
-                          <span className="text-faint">/{t.total}</span> <span className="text-faint">{t.unit ?? "solved"}</span>
-                        </span>
-                      </div>
-                      <div className="h-1 bg-raised" aria-hidden="true">
-                        <div className="h-full bg-signal" style={{ width: `${pct * 100}%` }} />
-                      </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section aria-labelledby="standing">
+            <SectionTitle id="standing" meta={lb.frozen ? "frozen" : undefined}>
+              Standings
+            </SectionTitle>
+            <div className="panel hud-glass !p-0">
+              <ol className="divide-y divide-line">
+                {top.map((s) => (
+                  <li key={s.teamId} className={cn("flex items-center gap-3 px-4 py-2", s.teamId === teamId && "bg-[color-mix(in_srgb,var(--accent)_9%,transparent)]")}>
+                    <span className="num w-5 text-xs text-mute">{s.rank}</span>
+                    <span className="flex-1 truncate font-display text-[0.85rem]">{s.name}</span>
+                    <span className="num text-sm text-ink">{s.score}</span>
+                  </li>
+                ))}
+                {!top.length ? (
+                  <li className="px-4 py-3 text-xs text-mute">
+                    <Radio className="mr-1 inline size-3" aria-hidden="true" />
+                    No scores yet.
+                  </li>
+                ) : null}
+              </ol>
+              <Link href="/play/leaderboard" className="flex items-center justify-center gap-2 border-t border-line py-2.5 font-mono text-[0.66rem] uppercase tracking-[0.12em] text-mute hover:text-ink">
+                <Trophy className="size-3.5" aria-hidden="true" /> {me?.rank ? `You are #${me.rank}` : "Full leaderboard"}
+              </Link>
+            </div>
+          </section>
+
+          {anns.length ? (
+            <section aria-labelledby="comms">
+              <SectionTitle id="comms">Comms</SectionTitle>
+              <ol className="panel hud-glass divide-y divide-line">
+                {anns.map((a) => (
+                  <li key={a.id} className="flex gap-3 px-3 py-2.5">
+                    <Megaphone className={cn("mt-0.5 size-4 shrink-0", a.level === "critical" ? "text-signal-magenta" : a.level === "warning" ? "text-signal-amber" : "text-signal-cyan")} aria-hidden="true" />
+                    <div className="min-w-0">
+                      <p className="font-display text-sm font-semibold">{a.title}</p>
+                      {a.body ? <p className="text-[0.82rem] text-ink-dim">{a.body}</p> : null}
                     </div>
-                  </Link>
-                </SpotlightCard>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
 
-      <div className="grid gap-6 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section aria-labelledby="comms">
-          <SectionTitle id="comms" meta={anns.length ? `${anns.length} latest` : undefined}>
-            Comms
-          </SectionTitle>
-          {anns.length === 0 ? (
-            <EmptyState compact title="Channel quiet">
-              Announcements from the organisers appear here and pop up live.
-            </EmptyState>
-          ) : (
-            <ol className="panel divide-y divide-line">
-              {anns.map((a) => (
-                <li key={a.id} className="flex gap-3 px-4 py-3">
-                  <Megaphone
-                    className={cn("mt-0.5 size-4 shrink-0", a.level === "critical" ? "text-signal-magenta" : a.level === "warning" ? "text-signal-amber" : "text-signal-cyan")}
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 font-mono text-sm font-semibold">
-                      {a.title}
-                      {a.level !== "info" ? <Badge variant={a.level === "critical" ? "danger" : "warning"}>{a.level}</Badge> : null}
-                    </p>
-                    {a.body ? <p className="mt-0.5 text-sm text-ink-dim">{a.body}</p> : null}
-                    <p className="mt-1 font-mono text-[0.65rem] text-faint"><LocalTime iso={a.createdAt.toISOString()} /></p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-
-        <section aria-labelledby="standing">
-          <SectionTitle id="standing" meta={lb.frozen ? "frozen" : undefined}>
-            Standings
-          </SectionTitle>
-          <Panel className="!p-0">
-            <ol className="divide-y divide-line">
-              {top.map((s) => (
-                <li key={s.teamId} className={cn("flex items-center gap-3 px-4 py-2.5", s.teamId === teamId && "bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]")}>
-                  <span className="num w-6 text-xs text-mute">{s.rank}</span>
-                  <span className="flex-1 truncate font-mono text-sm">{s.name}</span>
-                  <span className="num text-sm text-ink">{s.score}</span>
-                </li>
-              ))}
-              {me && !top.some((t) => t.teamId === teamId) && !me.disqualified ? (
-                <li className="flex items-center gap-3 bg-[color-mix(in_srgb,var(--accent)_7%,transparent)] px-4 py-2.5">
-                  <span className="num w-6 text-xs text-mute">{me.rank}</span>
-                  <span className="flex-1 truncate font-mono text-sm">{me.name}</span>
-                  <span className="num text-sm">{me.score}</span>
-                </li>
-              ) : null}
-            </ol>
-            <Link href="/play/leaderboard" className="flex items-center justify-center gap-2 border-t border-line py-2.5 font-mono text-[0.7rem] uppercase tracking-[0.12em] text-mute hover:text-ink">
-              <Trophy className="size-3.5" aria-hidden="true" /> Full leaderboard
-            </Link>
-          </Panel>
-        </section>
+          {ev.rulesMd ? (
+            <details className="panel hud-glass group p-4">
+              <summary className="label-mono cursor-pointer list-none text-ink-dim marker:hidden">
+                <span className="mr-2 inline-block transition-transform group-open:rotate-90">›</span>Rules of engagement
+              </summary>
+              <Markdown className="mt-3">{ev.rulesMd}</Markdown>
+            </details>
+          ) : null}
+        </aside>
       </div>
-
-      {ev.rulesMd ? (
-        <details className="panel group p-4 sm:p-5">
-          <summary className="label-mono cursor-pointer list-none text-ink-dim marker:hidden">
-            <span className="mr-2 inline-block transition-transform group-open:rotate-90">›</span>Rules of engagement
-          </summary>
-          <Markdown className="mt-3">{ev.rulesMd}</Markdown>
-        </details>
-      ) : null}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { hasRole } from "@/server/auth/session";
 import { env } from "@/server/env";
-import { formatIssue, listPacks, loadPack } from "@/server/packs/load";
+import { formatIssue, listPacks, loadPack, packSummary } from "@/server/packs/load";
 import { requireStaffPage } from "@/server/page-auth";
 
 export const metadata = { title: "Packs" };
@@ -35,13 +35,13 @@ export default async function AdminPacks() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="flex flex-wrap items-center gap-2 font-mono text-base font-semibold">
-                      {p.pack?.event.name ?? p.slug}
+                      {p.pack ? packSummary(p.pack).name : p.slug}
                       {active ? <Badge variant="accent">active</Badge> : null}
                       {p.pack ? <Badge variant="success">valid</Badge> : <Badge variant="danger">{errors.length} errors</Badge>}
                     </h2>
                     <p className="font-mono text-xs text-mute">
                       {p.slug}
-                      {p.pack ? ` · ${p.pack.challenges.length} challenges · ${p.pack.event.modes.join(", ")} · hash ${p.pack.hash}` : ""}
+                      {p.pack ? ` · ${packSummary(p.pack).format} · ${packSummary(p.pack).nodes} challenges · ${packSummary(p.pack).families.join(", ")} · hash ${p.pack.hash}` : ""}
                       {active && event?.packHash && p.pack && event.packHash !== p.pack.hash ? <span className="text-signal-amber"> · changed on disk since import</span> : null}
                     </p>
                   </div>

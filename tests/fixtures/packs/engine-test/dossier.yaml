@@ -1,0 +1,123 @@
+schema: dossier/v2
+event:
+  id: engine-test
+  title: Engine Test Case
+  durationMinutes: 120
+  registration: { open: true }
+story:
+  title: The Test Case
+  characters:
+    - { id: ada, name: Ada Byte, role: engineer, suspect: true }
+    - { id: bob, name: Bob Stack, role: courier, suspect: true }
+  locations:
+    - { id: lab, name: Lab 7 }
+  timeline:
+    - { id: t-open, at: "21:00", title: Lab opens, public: true }
+  truth: { culprit: ada }
+world:
+  facts:
+    codeword: { gen: word, from: [ORCHID, KESTREL, VANTA, HALCYON, TUNDRA, CINDER, SEXTANT, ZEPHYR] }
+    wipeTime: { gen: time, base: "02:40", jitterMinutes: 12 }
+acts:
+  - { id: a1, title: Act One, phase: briefing }
+  - { id: a2, title: Act Two }
+rounds:
+  - { id: r-cryptic, act: a1, title: The Message, family: cryptic, tier: intro }
+  - { id: r-web, act: a1, title: The Portal, family: browser, tier: intermediate }
+  - { id: r-files, act: a2, title: The Evidence, family: forensics, tier: advanced }
+  - { id: r-field, act: a2, title: Campus, family: physical, tier: intermediate }
+  - { id: r-final, act: a2, title: Verdict, family: final, tier: final }
+sites:
+  - id: portal
+    title: Test Portal
+    org: Test Lab
+    tagline: Internal services
+    people: [{ name: Ada Byte, title: Engineer, email: ada@lab.example }]
+nodes:
+  - id: message
+    round: r-cryptic
+    title: The message
+    primitive: cryptic
+    briefing: A short transmission arrived.
+    config:
+      steps:
+        - prompt: "Decode: `{{codeword | caesar:3}}` (shifted three forward)."
+          answer: "{{codeword}}"
+          reveal: The codeword opens the portal.
+      intentional: [caesar]
+    exports: { portalWord: step1 }
+    rewards: { evidence: [ev-message], phase: portal }
+    scoring: { points: 50 }
+    hints:
+      - { level: nudge, text: Julius would know. }
+  - id: portal
+    round: r-web
+    title: Portal fragments
+    primitive: web-investigation
+    gate: { node: message }
+    config: { site: portal, channels: [response-header, indexeddb, html-comment], decoys: 1 }
+    exports: { maintPass: answer }
+    rewards: { evidence: [ev-portal] }
+    scoring: { points: 150 }
+  - id: records
+    round: r-web
+    title: Records desk
+    primitive: session-state
+    gate: { all: [{ node: portal }, { phase: portal }] }
+    config:
+      site: portal
+      code: "{{maintPass}}"
+      rows: [["{{wipeTime}}", "LAB-7", "{{codeword}}-7", GRANTED]]
+      answer: "{{codeword}}-7"
+    rewards: { evidence: [ev-door] }
+    scoring: { points: 150 }
+  - id: archive
+    round: r-files
+    title: Encrypted archive
+    primitive: file-forensics
+    gate: { evidence: ev-door }
+    config:
+      question: When did the wipe start?
+      answer: "{{wipeTime}}"
+      files:
+        - kind: log
+          name: syslog.txt
+          date: "2026-03-14"
+          entries: [{ time: "{{wipeTime}}:09", text: "maint[77]: secure-erase started" }]
+          noise: { count: 30, from: "01:00", to: "04:00", messages: ["cron[%PID%]: ok"] }
+      zip: { name: evidence.zip, password: "{{maintPass}}" }
+    rewards: { evidence: [ev-log] }
+    scoring: { points: 200 }
+  - id: field
+    round: r-field
+    title: Go to the lab
+    primitive: qr-checkpoint
+    gate: { node: archive }
+    config: { checkpoint: lab-door }
+    rewards: { evidence: [ev-key] }
+    scoring: { points: 50 }
+  - id: verdict
+    round: r-final
+    title: The verdict
+    primitive: final-reconstruction
+    gate: { all: [{ checkpoint: lab-door }, { links: 1 }] }
+    config:
+      fields:
+        - { id: culprit, label: Culprit, type: suspect, options: [{ id: ada, label: Ada Byte }, { id: bob, label: Bob Stack }], answer: [ada], points: 200 }
+        - { id: time, label: Wipe time, type: time, answer: ["{{wipeTime}}"], points: 100, toleranceMinutes: 1 }
+        - { id: code, label: Final code, type: code, answer: ["{{maintPass}}"], points: 100 }
+      coherenceBonus: 100
+    scoring: { points: 0 }
+evidence:
+  - { id: ev-brief, title: Case briefing, gate: { always: true }, body: "Someone wiped the lab." }
+  - { id: ev-message, title: Decoded message, kind: message, body: "The word was {{codeword}}." }
+  - { id: ev-portal, title: Portal passphrase, kind: record }
+  - { id: ev-door, title: Door export, kind: record, about: { characters: [ada] } }
+  - { id: ev-log, title: Wipe log, kind: log }
+  - { id: ev-key, title: Field key, kind: object }
+checkpoints:
+  - { id: lab-door, name: Lab door, location: Lab 7, requiresApproval: false }
+relations:
+  - { from: "ev:ev-door", to: "sus:ada", kind: implicates }
+redHerrings:
+  - { id: bob-courier, description: Bob carried a parcel out, plausibility: 0.6, disprovedBy: [ev-log] }

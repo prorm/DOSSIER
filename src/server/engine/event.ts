@@ -36,6 +36,11 @@ export async function getActiveEvent(db: Executor): Promise<EventRow | null> {
   return row ?? null;
 }
 
+export async function getEvent(db: Executor, id: string): Promise<EventRow | null> {
+  const [row] = await db.select().from(events).where(eq(events.id, id)).limit(1);
+  return row ?? null;
+}
+
 export async function requireActiveEvent(db: Executor): Promise<EventRow> {
   const e = await getActiveEvent(db);
   if (!e) throw new GameError("not_found", "No active event. Import a content pack first.");

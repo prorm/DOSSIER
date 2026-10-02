@@ -17,7 +17,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { api, ApiError } from "@/lib/api";
-import type { HintView } from "@/server/engine/play";
+export interface HintView {
+  index: number;
+  level: string;
+  cost: number;
+  currency: string;
+  purchased: boolean;
+  purchasable: boolean;
+  text?: string;
+}
 import { Markdown } from "./markdown-client";
 
 /**
@@ -63,8 +71,10 @@ export function HintPanel({ challengeId, hints, disabled }: { challengeId: strin
             <li key={h.index} className="rounded-sm border border-line bg-bg p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-mono text-[0.72rem] uppercase tracking-[0.1em] text-mute">
-                  Hint {h.index + 1}
-                  <span className="ml-2 text-signal-amber">−{h.cost} pts</span>
+                  Hint {h.index + 1} · {h.level.replace("-", " ")}
+                  <span className="ml-2 text-signal-amber">
+                    −{h.cost} {h.currency === "tokens" ? "tokens" : "pts"}
+                  </span>
                 </span>
                 {text === undefined ? (
                   <Button
@@ -92,7 +102,11 @@ export function HintPanel({ challengeId, hints, disabled }: { challengeId: strin
           <AlertDialogHeader>
             <AlertDialogTitle>Decrypt hint {confirm ? confirm.index + 1 : ""}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This costs <span className="font-mono font-semibold text-signal-amber">{confirm?.cost ?? 0} points</span> from your team score, immediately and permanently.
+              This costs{" "}
+              <span className="font-mono font-semibold text-signal-amber">
+                {confirm?.cost ?? 0} {confirm?.currency === "tokens" ? "hint tokens" : "points"}
+              </span>
+              {confirm?.currency === "tokens" ? ", immediately and permanently." : " from your team score, immediately and permanently."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error ? <p className="font-mono text-xs text-signal-magenta">{error}</p> : null}

@@ -2,9 +2,9 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Executor } from "../db/client";
 import { eventLog, events, leaderboardCache, teams } from "../db/schema";
 import { bus, topics } from "../realtime/bus";
-import { loadChallenges } from "./context";
+import { challenges } from "../db/schema";
 import { freezeInstant } from "./event";
-import { computeScores, type ScoreComputation, type Standing, type SeriesPoint } from "./scoring";
+import { computeScores, nodeScoring, type ScoreComputation, type Standing, type SeriesPoint } from "./scoring";
 import type { EventRow } from "./types";
 
 export interface LeaderboardPayload {
@@ -24,14 +24,15 @@ const SERIES_TOP_N = 10;
 
 export async function computeFor(db: Executor, event: EventRow, until: Date | null): Promise<ScoreComputation> {
   const [teamRows, log, chs] = await Promise.all([
-    db.select({ id: teams.id, name: teams.name, status: teams.status, affiliation: teams.affiliation }).from(teams).where(eq(teams.eventId, event.id)),
+    // Playtest teams (organisers) never appear on boards.
+    db.select({ id: teams.id, name: teams.name, status: teams.status, affiliation: teams.affiliation }).from(teams).where(and(eq(teams.eventId, event.id), eq(teams.kind, "player"))),
     db
       .select({ id: eventLog.id, teamId: eventLog.teamId, type: eventLog.type, challengeId: eventLog.challengeId, points: eventLog.points, createdAt: eventLog.createdAt })
       .from(eventLog)
       .where(eq(eventLog.eventId, event.id)),
-    loadChallenges(db, event.id, true),
+    db.select().from(challenges).where(eq(challenges.eventId, event.id)),
   ]);
-  return computeScores(teamRows, log, new Map(chs.map((c) => [c.id, c])), until);
+  return computeScores(teamRows, log, new Map(chs.map((c) => [c.id, nodeScoring(c)])), until);
 }
 
 function toPayload(event: EventRow, comp: ScoreComputation, version: number, frozenAt: Date | null): LeaderboardPayload {

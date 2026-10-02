@@ -8,6 +8,7 @@ import { listAnnouncements } from "@/server/engine/admin";
 import { verifyDisplayToken } from "@/server/engine/display";
 import { getActiveEvent } from "@/server/engine/event";
 import { getLeaderboard, publicLeaderboardView } from "@/server/engine/leaderboard";
+import { arenaUniverse } from "@/server/game/presentation";
 import { pageStaffSession } from "@/server/page-auth";
 import { eventView } from "@/server/views";
 
@@ -28,10 +29,10 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
     );
   }
   const ev = eventView(event);
-  const [lb, anns] = await Promise.all([getLeaderboard(db, event.id, "public"), listAnnouncements(db, event.id, 4)]);
+  const [lb, anns, arena] = await Promise.all([getLeaderboard(db, event.id, "public"), listAnnouncements(db, event.id, 4), arenaUniverse(db, event)]);
   const kq = k ? `&k=${encodeURIComponent(k)}` : "";
   return (
-    <RealtimeProvider streamUrl={`/api/stream?scope=display${kq}`} pollUrl={`/api/display/pulse?${kq.slice(1)}`}>
+    <RealtimeProvider streamUrl={`/api/stream?scope=display${kq}`} pollUrl={`/api/display/pulse?${kq.slice(1)}`} refreshOn={["leaderboard"]}>
       <EffectsBoot />
       <main id="main">
         <DisplayBoard
@@ -42,6 +43,7 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
           phase={ev.phase}
           endsAt={ev.endsAt}
           tint={SIGNAL_HEX[ev.theme.accent] ?? "#39FF88"}
+          arena={arena ? { input: arena.input, fingerprint: arena.fingerprint, layoutSeed: arena.layoutSeed, accent: ev.theme.accent, solved: arena.solved, files: arena.counts.files, teams: arena.teams } : null}
         />
       </main>
     </RealtimeProvider>

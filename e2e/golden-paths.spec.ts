@@ -3,10 +3,9 @@ import { test, expect } from "@playwright/test";
 test.describe("DOSSIER Golden Paths & Surface Health", () => {
   test("Public landing and hub navigation", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/DOSSIER/i);
-    // Verifies cyber terminal theme elements exist
-    await expect(page.locator("body")).toBeVisible();
-    await expect(page.locator("text=DOSSIER")).toBeVisible();
+    // The title is the active event's name (or DOSSIER with no event).
+    await expect(page).toHaveTitle(/\S/);
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
   });
 
   test("Authentication portals render correctly", async ({ page }) => {
@@ -23,7 +22,7 @@ test.describe("DOSSIER Golden Paths & Surface Health", () => {
 
   test("Public leaderboard and display screens", async ({ page }) => {
     await page.goto("/leaderboard");
-    await expect(page.locator("text=LEADERBOARD, text=Standings, text=RANK").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /leaderboard/i }).first()).toBeVisible();
 
     await page.goto("/display");
     await expect(page.locator("body")).toBeVisible();
@@ -35,7 +34,7 @@ test.describe("DOSSIER Golden Paths & Surface Health", () => {
 
     await page.goto("/dev/ui");
     await expect(page.locator("body")).toBeVisible();
-    await expect(page.locator("text=COMPONENT LAB, text=UI LAB, text=primitives").first()).toBeVisible();
+    await expect(page).toHaveTitle(/UI Lab/);
 
     // Expect no critical runtime crashes
     expect(errors.filter((e) => !e.includes("ResizeObserver"))).toHaveLength(0);

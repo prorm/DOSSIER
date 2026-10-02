@@ -18,10 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import type { ChallengeView, OpenChallengeView } from "@/server/engine/play";
 import { AmbientTerminal } from "./ambient";
 import { EvidenceCard, SuspectDossier, Timeline } from "./case-components";
-import { ChallengeCard } from "./challenge-card";
 import { CheckpointMark } from "./live-client";
 import { PhaseBanner, PhaseChip } from "./phase";
 import { EmptyState, ErrorState, LockedState, SkeletonCards, StandbyState, Stat } from "./primitives";
@@ -38,32 +36,6 @@ const TOKENS = [
   ["magenta", "#FF2E88"],
   ["amber", "#FFB020"],
 ] as const;
-
-const base = { mode: "ctf" as const, category: "crypto", position: null, requires: null };
-const open: OpenChallengeView = {
-  ...base,
-  id: "demo-open",
-  state: "open",
-  title: "XOR Marks the Spot",
-  bodyMd: "",
-  value: 400,
-  solves: 3,
-  firstBlood: "Null Pointers",
-  solvedAt: null,
-  hints: [],
-  assets: [],
-  answerType: "flag",
-  difficulty: "medium",
-  tags: [],
-  firstBloodBonus: 75,
-  dynamic: true,
-};
-const CARDS: ChallengeView[] = [
-  open,
-  { ...open, id: "demo-solved", state: "solved", title: "Rot in Peace", value: 100, difficulty: "easy" },
-  { ...base, id: "demo-locked", state: "locked", opensAt: null, requires: { all: ["demo-open"], any: [] } },
-  { ...base, id: "demo-sched", state: "scheduled", opensAt: "2030-01-01T09:00:00.000Z" },
-];
 
 function Section({ id, title, children, note }: { id: string; title: string; children: React.ReactNode; note?: string }) {
   return (
@@ -197,19 +169,6 @@ export function UiLab() {
         </div>
       </Section>
 
-      <Section id="cards" title="Challenge cards" note="SpotlightCard (React Bits) on open cards, fine pointers only. Locked and scheduled cards carry no content — the server never sent it.">
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {CARDS.map((c) => (
-            <li key={c.id} className="flex [&>*]:flex-1">
-              <ChallengeCard c={c} />
-            </li>
-          ))}
-          <li className="flex [&>*]:flex-1">
-            <ChallengeCard c={{ ...open, id: "demo-fresh", title: "Freshly unlocked" }} fresh />
-          </li>
-        </ul>
-      </Section>
-
       <Section id="feedback" title="Submission feedback" note="ACCESS GRANTED (DecryptedText mount), ACCESS DENIED (GlitchText 650ms burst), cooldown, verifying (LatticeLoader), score count-up (CountUp).">
         <div className="grid gap-3 [&>*]:min-w-0 lg:grid-cols-2">
           <div className="panel glow p-5 [--glow:var(--color-signal-green)]">
@@ -263,10 +222,10 @@ export function UiLab() {
         <div className="grid gap-3 [&>*]:min-w-0 lg:grid-cols-3">
           <EvidenceCard
             index={2}
-            e={{ id: "x", title: "Keycard Access Log", kind: "record", summary: "Lab 3B door log for the night.", bodyMd: "", image: null, location: { id: "l", name: "Robotics Lab 3B" }, suspects: [{ id: "s", name: "Nisha Pillai" }], revealedAt: new Date().toISOString(), isNew: true, source: "start" }}
+            e={{ id: "x", title: "Keycard Access Log", kind: "record", summary: "Lab 3B door log for the night.", isNew: true, about: { characters: [{ id: "s", name: "Nisha Pillai" }], locations: [{ id: "l", name: "Robotics Lab 3B" }] } }}
           />
           <div className="lg:col-span-2">
-            <SuspectDossier code="SUS-01" p={{ id: "s", name: "Arjun Rao", role: "PhD student", details: [{ label: "Access", value: "Revoked last week" }], bodyMd: "Wrote most of the navigation stack.", image: null }} />
+            <SuspectDossier code="SUS-01" p={{ id: "s", name: "Arjun Rao", role: "PhD student", bio: "Wrote most of the navigation stack.", suspect: true, relationships: [{ to: "Nisha Pillai", kind: "co-author" }] }} />
           </div>
         </div>
         <div className="grid gap-3 [&>*]:min-w-0 lg:grid-cols-2">

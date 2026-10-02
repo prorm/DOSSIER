@@ -16,14 +16,14 @@ const STAFF = { email: "admin@dossier.local", password: "dossier-demo-pass" };
 
 const TEAM_PAGES = [
   ["console", "/play"],
-  ["hunt", "/play/hunt"],
-  ["ctf", "/play/ctf"],
-  ["challenge", "/play/challenge/xor-marks"],
-  ["challenge-locked", "/play/challenge/h08"],
-  ["inquest", "/play/inquest"],
-  ["evidence", "/play/inquest/evidence/e-cctv"],
-  ["board", "/play/inquest/board"],
-  ["accuse", "/play/inquest/accuse"],
+  ["map", "/play/map"],
+  ["room-web", "/play/node/kestrel-portal"],
+  ["room-photo", "/play/node/whiteboard-photo"],
+  ["room-sql", "/play/node/facilities-db"],
+  ["room-interview", "/play/node/interview-whitlock"],
+  ["case", "/play/case"],
+  ["exhibit", "/play/case/evidence/ev-door-log"],
+  ["board", "/play/board"],
   ["live", "/play/live"],
   ["leaderboard", "/play/leaderboard"],
 ];
@@ -34,18 +34,20 @@ const PUBLIC_PAGES = [
   ["public-leaderboard", "/leaderboard"],
 ];
 const STAFF_PAGES = [
-  ["admin", "/admin"],
+  ["war-room", "/admin"],
   ["admin-event", "/admin/event"],
   ["admin-challenges", "/admin/challenges"],
-  ["admin-challenge-edit", "/admin/challenges/xor-marks"],
   ["admin-teams", "/admin/teams"],
   ["admin-submissions", "/admin/submissions"],
   ["admin-signals", "/admin/signals"],
   ["admin-checkpoints", "/admin/checkpoints"],
   ["admin-packs", "/admin/packs"],
+  ["studio", "/studio"],
+  ["studio-workspace", "/studio/case-017?tab=challenges"],
   ["volunteer", "/volunteer"],
   ["display", "/display"],
   ["dev-ui", "/dev/ui"],
+  ["dev-rooms", "/dev/rooms"],
 ];
 
 async function shoot(page: Page, name: string, url: string, width: number) {

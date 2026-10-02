@@ -1,0 +1,364 @@
+/* ════════════════════════════════════════════════════════════════════
+   The evidence wall: exhibits as physical objects with depth, typed strings,
+   a relation picker. The wall's material follows the theme (holo table,
+   frosted glass, cork, oscilloscope); everything else follows tokens.
+   ════════════════════════════════════════════════════════════════════ */
+
+.board-wall {
+  position: relative;
+  height: 72dvh;
+  min-height: 440px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  perspective: 1500px;
+  perspective-origin: 50% 40%;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--r-panel, 5px);
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px);
+  background-size: var(--grid, 36px) var(--grid, 36px);
+  background-position: var(--gx, 0) var(--gy, 0);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.45);
+}
+.board-wall:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The tilt leans the whole wall a hair toward the pointer, pivoting about the middle of the view;
+   the plane inside it is pure pan/zoom from the top-left, so the maths in the component stays exact. */
+.board-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(var(--py, 0) * -1.3deg)) rotateY(calc(var(--px, 0) * 1.6deg));
+  transition: transform 0.25s ease-out;
+}
+.board-plane { position: absolute; top: 0; left: 0; transform-style: preserve-3d; transform-origin: 0 0; will-change: transform; transition: opacity 0.4s ease-out; }
+/* The wall is framed before it is shown, so it never visibly jumps into place. */
+.board-wall[data-ready="false"] .board-plane { opacity: 0; }
+/* Thread runs pin to pin over whatever lies between, so the strings ride above the paper (labels above them). */
+.board-strings { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; transform: translateZ(32px); }
+
+[data-material="holo"] .board-wall {
+  background-color: #04070b;
+  box-shadow: inset 0 0 120px rgba(0, 229, 255, 0.05), inset 0 0 0 1px color-mix(in srgb, var(--accent-2) 12%, transparent);
+}
+[data-material="glass"] .board-wall {
+  background-color: #0a0821;
+  background-image:
+    radial-gradient(90% 70% at 20% 0%, color-mix(in srgb, var(--brand) 22%, transparent), transparent 70%),
+    radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, var(--brand-2) 14%, transparent), transparent 70%),
+    radial-gradient(circle, color-mix(in srgb, var(--color-ink) 12%, transparent) 1px, transparent 1.4px);
+  background-size: 100% 100%, 100% 100%, var(--grid, 36px) var(--grid, 36px);
+  background-position: 0 0, 0 0, var(--gx, 0) var(--gy, 0);
+  border-color: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  box-shadow: inset 0 0 100px rgba(80, 60, 200, 0.12);
+}
+[data-material="cork"] .board-wall {
+  background-color: #a5824f;
+  background-image:
+    radial-gradient(90% 70% at 25% 0%, rgba(255, 240, 200, 0.5), transparent 65%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .19  0 0 0 0 .08  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>");
+  background-size: 100% 100%, 260px 260px;
+  background-position: 0 0, 0 0;
+  box-shadow: inset 0 0 0 8px #6b4a25, inset 0 0 0 10px #8a6535, inset 0 0 90px rgba(60, 30, 5, 0.55);
+  border-color: #4a3216;
+}
+[data-material="scope"] .board-wall {
+  background-color: #01060a;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px);
+  box-shadow: inset 0 0 120px rgba(38, 212, 255, 0.07);
+}
+
+/* ─── Exhibits ─── */
+
+.ex-wrap {
+  position: absolute;
+  transform-style: preserve-3d;
+  transition: filter 0.2s;
+  touch-action: none;
+}
+.ex-wrap.is-selected { filter: drop-shadow(0 0 0.5px var(--accent)) drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 45%, transparent)); z-index: 3; }
+/* A card in the hand comes off the wall, above every string. */
+.ex-wrap.is-lifted { z-index: 6; }
+.ex-wrap.is-lifted .ex { transform: scale(1.045) translateY(-5px); box-shadow: 0 34px 44px -18px rgba(0, 0, 0, 0.75) !important; }
+.ex-hit { position: absolute; inset: 0; z-index: 1; border-radius: 3px; background: transparent; cursor: grab; }
+.ex-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ex-pinhead {
+  position: absolute;
+  z-index: 4;
+  top: -3px;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #fff9, transparent 38%), var(--pin, #ff2e88);
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.55), inset 0 -2px 3px rgba(0, 0, 0, 0.35);
+  cursor: crosshair;
+  /* The pin head sits over the thread knotted round it. */
+  transform: translateZ(14px);
+  transition: transform 0.15s;
+}
+.ex-pinhead:hover { transform: translateZ(14px) scale(1.3); }
+/* A finger needs more than a 10px target when the wall is zoomed out: slop scales inversely with the zoom. */
+.ex-pinhead::after { content: ""; position: absolute; inset: calc(-9px * var(--inv, 1)); border-radius: 999px; }
+.ex-pinhead.is-fixed { background: radial-gradient(circle at 35% 30%, #fff9, transparent 38%), var(--color-signal-amber); }
+.ex-wrap.is-target .ex-pinhead { animation: pin-beckon 1.1s ease-in-out infinite; }
+@keyframes pin-beckon { 0%, 100% { box-shadow: 0 3px 5px rgba(0, 0, 0, 0.55), 0 0 0 0 color-mix(in srgb, var(--pin) 70%, transparent); } 50% { box-shadow: 0 3px 5px rgba(0, 0, 0, 0.55), 0 0 0 9px transparent; } }
+
+.ex {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  min-height: 96px;
+  padding: 20px 12px 12px;
+  color: var(--ex-ink, var(--color-ink));
+  border-radius: 3px;
+  transition: transform 0.2s var(--ease-out-quart), box-shadow 0.2s, filter 0.3s;
+  box-shadow: 0 16px 24px -14px rgba(0, 0, 0, 0.8), 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+.ex-decor { flex: none; display: grid; place-items: center; width: 54px; color: var(--ex-accent, var(--color-signal-cyan)); }
+.ex-decor svg { width: 100%; height: auto; }
+.ex-idno { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 0.5rem; font-style: normal; letter-spacing: 0.12em; opacity: 0.7; }
+.ex-body { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; text-align: left; }
+.ex-kind { font-family: var(--font-mono); font-size: 0.54rem; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
+.ex-title { font-family: var(--font-display); font-size: 0.86rem; line-height: 1.15; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ex-note { font-size: 0.7rem; line-height: 1.25; color: var(--color-signal-amber); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ex-foot { position: absolute; left: 12px; right: 12px; bottom: 3px; display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.48rem; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.55; pointer-events: none; }
+.ex.st-cross-referenced, .ex.st-anchor, .ex.st-examined { padding-bottom: 18px; }
+
+/* skins */
+.ex-paper {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #fff 7%, transparent), transparent 40%),
+    repeating-linear-gradient(0deg, transparent 0 17px, color-mix(in srgb, var(--ex-ink, var(--color-ink)) 7%, transparent) 17px 18px),
+    var(--ex-paper, var(--color-raised));
+  border: 1px solid color-mix(in srgb, var(--ex-ink, var(--color-ink)) 14%, var(--color-line));
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+.ex-polaroid {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 10px 12px;
+  color: #241d12;
+  background: #f4f0e6;
+  --ex-accent: #3a352a;
+}
+.ex-polaroid { padding-top: 20px; }
+/* A print, not a poster: short enough that a portrait and a document sit on the same row. */
+.ex-polaroid .ex-decor { position: relative; width: auto; height: 46px; background: linear-gradient(160deg, #2b3138, #14181d); color: #a7b4c2; padding: 6px; border: 1px solid rgba(0, 0, 0, 0.35); }
+.ex-polaroid .ex-title { -webkit-line-clamp: 2; }
+.ex-polaroid .ex-decor svg { width: auto; height: 100%; max-width: 100%; }
+.ex-polaroid .ex-idno { position: absolute; right: 6px; bottom: 3px; margin: 0; }
+.ex-polaroid .ex-idno { color: #a7b4c2; }
+.ex-polaroid .ex-kind { color: #5a5240; opacity: 1; }
+.ex-polaroid .ex-note { color: #8a3d00; }
+.ex-face-person { background: #efe6d2; }
+.ex-face-person .ex-decor { background: linear-gradient(160deg, #cfc4a8, #a99b7a); color: #3d3626; }
+.ex-terminal {
+  background: linear-gradient(180deg, rgba(120, 255, 190, 0.05), transparent 50%), #070b10;
+  border: 1px solid #1f3a30;
+  color: #b8ffd9;
+  --ex-accent: #39ff88;
+  font-family: var(--font-mono);
+}
+.ex-terminal .ex-title { font-family: var(--font-mono); font-size: 0.78rem; }
+.ex-cassette {
+  background: linear-gradient(180deg, #2a2d34, #1a1c21);
+  border: 1px solid #454a55;
+  border-radius: 8px;
+  color: #e6e1d0;
+  --ex-accent: #d9c98a;
+}
+.ex-cassette::before { content: ""; position: absolute; left: 12px; right: 12px; bottom: 8px; height: 12px; border-radius: 3px; background: rgba(0, 0, 0, 0.45); }
+.ex-tag {
+  background: #efe3bf;
+  color: #33291a;
+  border: 1px solid #b9a56c;
+  border-radius: 4px 14px 14px 4px;
+  padding-left: 22px;
+  --ex-accent: #6a4b1c;
+}
+.ex-tag::before { content: ""; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); }
+
+/* maturity */
+.ex.st-raw { filter: saturate(0.5) brightness(0.93); padding-bottom: 18px; }
+.ex.st-raw .ex-stage { color: var(--color-signal-amber); opacity: 1; }
+.ex.st-anchor { box-shadow: 0 0 0 1.5px var(--accent), 0 0 24px -4px var(--accent), 0 16px 24px -14px rgba(0, 0, 0, 0.8); }
+.ex.st-cross-referenced { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-2) 55%, transparent), 0 16px 24px -14px rgba(0, 0, 0, 0.8); }
+
+:is(:root[data-dossier-theme="cold-case"], [data-dossier-scope="cold-case"]) {
+  --ex-paper: #f6efd9;
+  --ex-ink: #2a2316;
+}
+/* NEURAL ARCHIVE: every exhibit is a memory fragment — frosted glass lit from within, whatever it was in life. */
+:is(:root[data-dossier-theme="neural-archive"], [data-dossier-scope="neural-archive"]) :is(.ex-paper, .ex-terminal, .ex-polaroid, .ex-cassette, .ex-tag) {
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--brand) 26%, transparent), transparent 60%),
+    linear-gradient(160deg, color-mix(in srgb, var(--color-raised) 82%, transparent), color-mix(in srgb, var(--color-surface) 70%, transparent));
+  border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+  border-radius: 16px;
+  clip-path: none;
+  color: var(--color-ink);
+  --ex-accent: var(--brand-2);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent), 0 18px 40px -18px rgba(0, 0, 0, 0.9), 0 0 32px -14px color-mix(in srgb, var(--brand) 60%, transparent);
+}
+:is(:root[data-dossier-theme="neural-archive"], [data-dossier-scope="neural-archive"]) .ex-polaroid .ex-decor {
+  border-radius: 10px;
+  border: 0;
+  background: radial-gradient(80% 120% at 50% 0%, color-mix(in srgb, var(--brand) 38%, #0d0b26), #0b0920);
+  color: color-mix(in srgb, var(--brand-2) 80%, #fff);
+}
+:is(:root[data-dossier-theme="neural-archive"], [data-dossier-scope="neural-archive"]) :is(.ex-polaroid .ex-kind, .ex-polaroid .ex-idno) { color: var(--color-mute); }
+:is(:root[data-dossier-theme="neural-archive"], [data-dossier-scope="neural-archive"]) .ex-title { font-family: var(--font-sans); font-weight: 500; letter-spacing: 0; }
+:is(:root[data-dossier-theme="neural-archive"], [data-dossier-scope="neural-archive"]) :is(.ex-cassette::before, .ex-tag::before) { display: none; }
+
+/* SIGNAL: intercept tiles on a console — dark glass, a channel bar down the left edge, readouts in mono. */
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) :is(.ex-paper, .ex-polaroid, .ex-cassette, .ex-tag) {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(38, 212, 255, 0.035) 3px 4px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 40%),
+    #07101e;
+  color: var(--color-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, #1a2b4a);
+  border-left: 3px solid var(--accent);
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  --ex-accent: var(--accent);
+}
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) .ex-polaroid .ex-decor { background: #030812; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent); }
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) :is(.ex-polaroid .ex-kind, .ex-polaroid .ex-idno) { color: var(--color-mute); }
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) .ex-title { font-family: var(--font-display); letter-spacing: 0.02em; }
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) .ex-terminal { border-radius: 0; border-left: 3px solid var(--color-signal-green); }
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) .note-wrap { background: #0b1a12; color: #b8ffd9; border: 1px solid #1f5a3c; transform: none; }
+:is(:root[data-dossier-theme="signal"], [data-dossier-scope="signal"]) .note-input { color: #b8ffd9 !important; }
+
+/* BLACKSITE: nothing on this table is paper. Prints, tags and notes become issued slabs — gunmetal, a
+   classification bar across the top, stencil type — so a person file and a log read as the same system. */
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) :is(.ex-polaroid, .ex-tag, .ex-face-person) {
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 4%, transparent), transparent 35%), #0c1217;
+  color: var(--color-ink);
+  border: 1px solid #263540;
+  border-top: 3px solid color-mix(in srgb, var(--accent) 70%, #0c1217);
+  border-radius: 2px;
+  --ex-accent: var(--accent);
+}
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) :is(.ex-polaroid .ex-decor, .ex-face-person .ex-decor) { background: repeating-linear-gradient(135deg, #111a21 0 6px, #0e161c 6px 12px); border: 1px solid #22313b; color: #6f8796; }
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) :is(.ex-polaroid .ex-kind, .ex-polaroid .ex-idno, .ex-polaroid .ex-note) { color: var(--color-mute); }
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) .ex-tag { padding-left: 14px; }
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) .ex-tag::before { display: none; }
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) .ex-title { text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.8rem; }
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) .note-wrap { background: #16130a; color: #f3d98a; border: 1px solid #4a3d16; border-left: 3px solid var(--color-signal-amber); transform: none; border-radius: 0; }
+:is(:root[data-dossier-theme="blacksite"], [data-dossier-scope="blacksite"]) .note-input { color: #f3d98a !important; }
+
+/* notes */
+.note-wrap { position: absolute; padding: 10px 10px 8px; background: #f3e39a; color: #3a300f; box-shadow: 0 14px 24px -12px rgba(0, 0, 0, 0.75); transform: rotate(-1.4deg); border-radius: 2px; }
+.note-wrap.is-selected { outline: 2px solid var(--color-signal-amber); outline-offset: 2px; }
+.note-grip { margin-bottom: 4px; cursor: move; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.55; }
+.note-input { min-height: 4rem; resize: none; border: 0 !important; background: transparent !important; padding: 0 !important; font-family: var(--font-mono); font-size: 0.74rem; color: #3a300f !important; box-shadow: none !important; }
+.note-input::placeholder { color: #8a7a3c; }
+.ex-pinhead.is-note { top: -6px; }
+
+/* strings */
+/* A label is a real button lying in the wall's plane, always above the exhibits. It keeps a legible
+   on-screen size as the wall zooms out (semantic zoom), up to a point. */
+.string-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 3px;
+  border: 1px solid currentColor;
+  border-radius: var(--r-chip, 4px);
+  background: var(--color-bg);
+  font: 500 10.5px / 1.2 var(--font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: none;
+  transform: translate(-50%, -50%) translateZ(46px) scale(min(1.5, max(1, calc(var(--inv, 1) * 0.75))));
+}
+.string-chip .t { color: var(--color-ink); }
+.string-chip:hover { background: var(--color-raised); }
+.string-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.string-chip.is-slack { border-style: dashed; }
+.string-chip.is-new { opacity: 0; animation: string-in 0.25s 0.55s ease-out forwards; }
+.string.is-selected .string-main { filter: drop-shadow(0 0 4px currentColor); }
+.string.is-new .string-main, .string.is-new .string-arrow { opacity: 0; animation: string-in 0.25s 0.5s ease-out forwards; }
+.string-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: string-draw 0.5s cubic-bezier(0.3, 0.7, 0.2, 1) forwards, string-out 0.2s 0.5s forwards; }
+.string.is-new .string-pin { transform-box: fill-box; transform-origin: center; animation: string-pin 0.5s 0.45s ease-out; }
+.string-draft { animation: u-dash 0.7s linear infinite; }
+@keyframes string-draw { to { stroke-dashoffset: 0; } }
+@keyframes string-in { to { opacity: 1; } }
+@keyframes string-out { to { opacity: 0; } }
+@keyframes string-pin { 0% { transform: scale(0.4); } 60% { transform: scale(2.4); } 100% { transform: scale(1); } }
+
+/* toolbar, tray, picker, selection bar, case break */
+.board-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chip-btn.is-warn { color: var(--color-signal-amber); border-color: color-mix(in srgb, var(--color-signal-amber) 55%, transparent); }
+.board-tray { position: sticky; top: 4.5rem; align-self: start; }
+.tray-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 5px 9px 5px 6px; text-align: left; color: var(--color-ink-dim); border: 1px solid var(--color-line); border-radius: var(--r-ctl, 3px); background: var(--color-bg); transition: border-color 0.15s, color 0.15s, transform 0.15s; }
+.tray-item:hover { color: var(--color-ink); border-color: var(--accent); transform: translateX(2px); }
+.tray-glyph { display: grid; place-items: center; flex: none; width: 30px; height: 22px; color: color-mix(in srgb, var(--accent) 70%, var(--color-mute)); }
+.tray-glyph svg { width: 100%; height: 100%; }
+
+/* Tidy: exhibits slide to their new places instead of jumping. */
+.board-wall.is-settling :is(.ex-wrap, .note-wrap) { transition: left 0.55s var(--ease-out-quart), top 0.55s var(--ease-out-quart); }
+/* A string landing on an exhibit knocks it on its pin. */
+.ex-wrap.is-jolted .ex, .note-wrap.is-jolted { animation: ex-jolt 0.55s cubic-bezier(0.3, 0.7, 0.3, 1); }
+@keyframes ex-jolt { 0% { transform: rotate(0); } 25% { transform: rotate(2.6deg) translateY(1px); } 55% { transform: rotate(-1.6deg); } 80% { transform: rotate(0.7deg); } 100% { transform: rotate(0); } }
+
+.board-key { position: absolute; z-index: 25; left: 10px; bottom: 10px; width: min(330px, calc(100% - 20px)); padding: 12px 14px; animation: reveal-up 0.22s var(--ease-out-quart) both; }
+.pick-sentence { margin: 0 0 8px; padding: 6px 9px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); font-size: 0.76rem; line-height: 1.35; color: var(--color-ink); }
+
+/* Case break: the wall answers a theory that held. */
+.board-break { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--color-bg) 42%, transparent); animation: break-in 0.35s ease-out both; }
+.board-break-flash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%); animation: break-flash 1.1s ease-out both; }
+.board-break-card { position: relative; width: min(440px, 100%); padding: 22px 22px 16px; border: 1px solid var(--accent); border-radius: var(--r-panel, 5px); background: color-mix(in srgb, var(--color-surface) 94%, transparent); box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); animation: reveal-up 0.4s 0.15s var(--ease-out-quart) both; }
+.board-break-stamp { display: inline-block; margin: -4px 0 12px -2px; padding: 4px 12px 3px; border: 3px solid var(--accent); color: var(--accent); font: 700 1.55rem / 1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; transform: rotate(-4deg); animation: break-stamp 0.5s 0.2s cubic-bezier(0.2, 1.6, 0.35, 1) both; }
+.board-break-lede { font-size: 0.9rem; color: var(--color-ink-dim); }
+.board-break-list { margin: 10px 0 14px; display: grid; gap: 6px; }
+.board-break-list li { display: flex; align-items: baseline; gap: 10px; font-size: 0.95rem; color: var(--color-ink); }
+.board-break-kind { flex: none; width: 4.6rem; font: 600 0.58rem / 1 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.board-break-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; border-top: 1px solid var(--color-line); }
+.board-wall.is-breaking .string-main { animation: string-surge 1.3s ease-out 2; }
+@keyframes break-in { from { opacity: 0; } }
+@keyframes break-flash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes break-stamp { 0% { transform: rotate(-4deg) scale(2.2); opacity: 0; } 60% { transform: rotate(-4deg) scale(0.94); opacity: 1; } 100% { transform: rotate(-4deg) scale(1); } }
+@keyframes string-surge { 0%, 100% { filter: none; } 35% { filter: drop-shadow(0 0 6px currentColor) brightness(1.4); } }
+:is(:root[data-dossier-theme="cold-case"], [data-dossier-scope="cold-case"]) .board-break-stamp { color: #b3261e; border-color: #b3261e; font-family: var(--font-mono); }
+:is(:root[data-dossier-theme="cold-case"], [data-dossier-scope="cold-case"]) .board-break-card { border-color: #b3261e; }
+.board-break.is-partial .board-break-stamp { color: var(--color-signal-amber); border-color: var(--color-signal-amber); }
+.board-break.is-partial .board-break-card { border-color: color-mix(in srgb, var(--color-signal-amber) 60%, var(--color-line)); }
+.board-break.is-fail .board-break-stamp { color: var(--color-signal-magenta); border-color: var(--color-signal-magenta); }
+.board-break.is-fail .board-break-card { border-color: color-mix(in srgb, var(--color-signal-magenta) 55%, var(--color-line)); }
+.board-desk { max-width: 100%; }
+.board-desk-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14rem; font-weight: 500; opacity: 0.85; }
+@media (max-width: 640px) { .board-desk-file { display: none; } }
+/* The tray is a sheet on small screens and a column on wide ones (an unlayered .chip-btn would beat lg:hidden). */
+@media (min-width: 1024px) { .board-bar .is-tray { display: none; } }
+.board-empty { padding: 18px 22px; border: 1px dashed var(--color-line-strong); border-radius: var(--r-panel, 5px); background: color-mix(in srgb, var(--color-bg) 70%, transparent); }
+.picker { position: absolute; z-index: 30; width: min(316px, calc(100% - 16px)); padding: 14px; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.85); animation: reveal-up 0.2s var(--ease-out-quart) both; }
+.pick { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-ink-dim); text-align: left; border: 1px solid var(--color-line-strong); border-radius: var(--r-ctl, 3px); transition: border-color 0.15s, background 0.15s, color 0.15s; }
+.pick:hover { color: var(--color-ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.pick.is-current { border-color: var(--accent); color: var(--color-ink); }
+.pick.is-odd { opacity: 0.7; }
+.picker-input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-ink); background: var(--color-bg); border: 1px solid var(--color-line-strong); border-radius: var(--r-ctl, 3px); outline: none; }
+.picker-input:focus { border-color: var(--accent); }
+.board-selbar { position: absolute; z-index: 20; right: 8px; bottom: 8px; left: 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; padding: 6px; background: color-mix(in srgb, var(--color-raised) 92%, transparent); border: 1px solid var(--color-line-strong); border-radius: var(--r-panel, 4px); backdrop-filter: blur(10px); }
+@media (min-width: 640px) { .board-selbar { left: auto; } }
+.case-break { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--accent); border-radius: var(--r-panel, 5px); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, var(--color-surface)), var(--color-surface)); color: var(--accent); animation: reveal-up 0.4s var(--ease-out-quart) both, break-pulse 1.6s ease-out 2; }
+.case-break p:nth-child(1) { color: var(--color-ink); }
+@keyframes break-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 22px transparent; } }
+
+/* Phones: the wall is wider than the screen by design. A one-line note says so, and the sides fade
+   so a cut exhibit reads as "more this way" rather than as a broken frame. */
+.board-phone-hint { display: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 0; font: 400 0.72rem / 1.35 var(--font-mono); color: var(--color-mute); }
+@media (max-width: 639px) {
+  .board-phone-hint { display: flex; }
+  .board-wall::after { content: ""; position: absolute; inset: 0; z-index: 6; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(0, 0, 0, 0.38), transparent 28px, transparent calc(100% - 28px), rgba(0, 0, 0, 0.38)); }
+}

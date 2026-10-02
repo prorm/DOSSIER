@@ -1,6 +1,6 @@
 "use client";
 
-import { Binary, Crosshair, FolderSearch, LogOut, Sparkles, SparklesIcon, Trophy, type LucideIcon } from "lucide-react";
+import { Binary, Crosshair, FileSearch, FolderSearch, Globe, LogOut, MapPinned, Radio, Sparkles, SparklesIcon, Trophy, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -11,13 +11,13 @@ import { setEffectsEnabled, useEffectsPreference } from "./effects";
 
 interface PaletteItem {
   id: string;
-  mode: "hunt" | "ctf" | "inquest";
+  mode: string;
   title: string;
   state: "open" | "solved";
   category: string | null;
 }
 
-const MODE_ICON: Record<PaletteItem["mode"], LucideIcon> = { hunt: Crosshair, ctf: Binary, inquest: FolderSearch };
+const MODE_ICON: Record<string, LucideIcon> = { cryptic: Crosshair, hunt: Crosshair, ctf: Binary, browser: Globe, forensics: Radio, osint: FileSearch, inquest: FolderSearch, physical: MapPinned, final: FolderSearch };
 
 /** Ctrl/Cmd+K. Jump anywhere: sections, any visible challenge, core actions. */
 export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItem[]; open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -78,7 +78,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItem[]; op
         <CommandSeparator />
         <CommandGroup heading={items === null ? "Challenges — loading…" : `Challenges (${items.length})`}>
           {(items ?? []).map((c) => {
-            const Icon = MODE_ICON[c.mode];
+            const Icon = MODE_ICON[c.mode] ?? FileSearch;
             return (
               <CommandItem key={c.id} value={`${c.title} ${c.id} ${c.category ?? ""} ${c.mode}`} onSelect={() => go(challengeHref(c.id))}>
                 <Icon />

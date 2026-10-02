@@ -30,7 +30,7 @@ export default async function PublicLeaderboard() {
         </div>
         <PhaseChip phase={ev.phase} frozen={ev.frozen} />
       </header>
-      <LeaderboardView initial={lb} myTeamId={team?.team.id} modes={ev.modes} />
+      <LeaderboardView initial={lb} myTeamId={team?.team.id} modes={[...ev.families, ...(ev.modes.includes("live") ? ["checkpoints"] : []), "partial"]} />
     </main>
   );
 }

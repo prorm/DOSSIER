@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "./db/client";
 import type { StaffRole } from "./db/schema";
-import { getActiveEvent } from "./engine/event";
+import { getActiveEvent, getEvent } from "./engine/event";
 import {
   cookieName,
   csrfTokenFor,
@@ -22,10 +22,11 @@ export async function pageTeamSession(): Promise<TeamSession | null> {
   return resolveTeamSession(db, jar.get(cookieName("team"))?.value);
 }
 
+/** Team pages render the team's own event (playtest teams may be inside a draft). */
 export async function requireTeamPage(returnTo?: string) {
   const [session, db] = await Promise.all([pageTeamSession(), getDb()]);
-  const event = await getActiveEvent(db);
-  if (!session || !event || session.team.eventId !== event.id) {
+  const event = session ? await getEvent(db, session.team.eventId) : null;
+  if (!session || !event || (session.team.kind !== "playtest" && !event.active && event.status === "draft")) {
     redirect(`/login${returnTo ? `?next=${encodeURIComponent(returnTo)}` : ""}`);
   }
   return { session, event, db, csrf: csrfTokenFor(session) };

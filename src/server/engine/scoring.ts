@@ -1,10 +1,9 @@
-import { modeFor } from "./modes";
 import type { ChallengeRow } from "./types";
 
 export interface LogEntry {
   id: number;
   teamId: string;
-  type: "solve" | "hint" | "checkpoint" | "accusation" | "adjustment";
+  type: "solve" | "hint" | "checkpoint" | "accusation" | "adjustment" | "partial";
   challengeId: string | null;
   points: number | null;
   createdAt: Date;
@@ -27,7 +26,7 @@ export interface Standing {
   /** Time the team reached its current score (tie-breaker: earlier wins). */
   lastScoreAt: string | null;
   disqualified: boolean;
-  breakdown: { hunt: number; ctf: number; inquest: number; live: number; hints: number; adjustments: number };
+  breakdown: { families: Record<string, number>; partial: number; checkpoints: number; hints: number; adjustments: number };
 }
 
 export interface SeriesPoint {
@@ -42,25 +41,56 @@ export interface ScoreComputation {
   firstBlood: Record<string, string>;
 }
 
+export interface NodeScoring {
+  family: string;
+  points: number;
+  firstBloodBonus: number;
+  dynamic?: { minimum: number; decay: number };
+}
+
+/** Scoring config of a materialised challenge row. */
+export function nodeScoring(c: ChallengeRow): NodeScoring {
+  const cfg = c.config as { scoring?: { points?: number; firstBloodBonus?: number; dynamic?: { minimum: number; decay: number } } };
+  return { family: c.mode, points: cfg.scoring?.points ?? 100, firstBloodBonus: cfg.scoring?.firstBloodBonus ?? 0, dynamic: cfg.scoring?.dynamic };
+}
+
 /**
- * Derives scores purely from the append-only event log.
+ * Dynamic value: quadratic decay from `initial` to `minimum` over `decay` solves
+ * (CTFd-style). Every solver receives the *current* value, so early solvers'
+ * points also decay — first blood is rewarded via a separate bonus instead.
+ */
+export function dynamicValue(initial: number, minimum: number, decay: number, solves: number): number {
+  const n = Math.max(0, solves - 1);
+  const v = initial + (minimum - initial) * Math.min(1, (n / decay) ** 2);
+  return Math.max(minimum, Math.ceil(v));
+}
+
+/** Current value of a node for the next solver. */
+export function currentValue(s: NodeScoring, totalSolves: number): number {
+  return s.dynamic ? dynamicValue(s.points, s.dynamic.minimum, s.dynamic.decay, totalSolves + 1) : s.points;
+}
+
+export function pointsForSolve(s: NodeScoring, solveIndex: number, totalSolves: number): number {
+  const base = s.dynamic ? dynamicValue(s.points, s.dynamic.minimum, s.dynamic.decay, totalSolves) : s.points;
+  return base + (solveIndex === 0 ? s.firstBloodBonus : 0);
+}
+
+/**
+ * Derives scores purely from the append-only ledger (event_log).
  *
- *  - Solves are valued at the challenge's *current* value (dynamic decay applies
- *    retroactively), plus the first-blood bonus for the first non-disqualified solver.
+ *  - Solves with a fixed `points` value count that value; solves with null
+ *    points are valued at the node's *current* value (dynamic decay applies
+ *    retroactively), plus the first-blood bonus for the first eligible solver.
  *  - All other entries carry a fixed point delta.
  *  - Ranking: score desc → earliest time the score was reached → shared rank.
  *  - Disqualified teams are listed last, unranked, and do not affect solve counts.
  *  - `until` computes the frozen view (entries after the freeze are ignored).
  */
-export function computeScores(teams: TeamInfo[], log: LogEntry[], challengeById: Map<string, ChallengeRow>, until?: Date | null): ScoreComputation {
+export function computeScores(teams: TeamInfo[], log: LogEntry[], nodes: Map<string, NodeScoring>, until?: Date | null): ScoreComputation {
   const teamById = new Map(teams.map((t) => [t.id, t]));
-  const entries = log
-    .filter((e) => teamById.has(e.teamId) && (!until || e.createdAt <= until))
-    .sort((a, b) => a.id - b.id);
-
+  const entries = log.filter((e) => teamById.has(e.teamId) && (!until || e.createdAt <= until)).sort((a, b) => a.id - b.id);
   const eligible = (teamId: string) => teamById.get(teamId)?.status !== "disqualified";
 
-  // Solve order per challenge (eligible teams only).
   const solveOrder = new Map<string, string[]>();
   for (const e of entries) {
     if (e.type !== "solve" || !e.challengeId || !eligible(e.teamId)) continue;
@@ -80,7 +110,7 @@ export function computeScores(teams: TeamInfo[], log: LogEntry[], challengeById:
       solves: 0,
       lastScoreAt: null,
       disqualified: t.status === "disqualified",
-      breakdown: { hunt: 0, ctf: 0, inquest: 0, live: 0, hints: 0, adjustments: 0 },
+      breakdown: { families: {}, partial: 0, checkpoints: 0, hints: 0, adjustments: 0 },
     });
   }
   const series: Record<string, SeriesPoint[]> = {};
@@ -89,18 +119,21 @@ export function computeScores(teams: TeamInfo[], log: LogEntry[], challengeById:
     const s = acc.get(e.teamId)!;
     let delta = 0;
     if (e.type === "solve") {
-      const c = e.challengeId ? challengeById.get(e.challengeId) : undefined;
-      if (!c) continue; // challenge removed from the pack: solve no longer counts
-      const order = solveOrder.get(c.id) ?? [];
-      const idx = order.indexOf(e.teamId);
-      delta = modeFor(c).pointsForSolve(c, idx < 0 ? order.length : idx, order.length);
+      const n = e.challengeId ? nodes.get(e.challengeId) : undefined;
+      if (!n) continue; // node removed from the event: the solve no longer counts
+      if (e.points !== null) delta = e.points;
+      else {
+        const order = solveOrder.get(e.challengeId!) ?? [];
+        const idx = order.indexOf(e.teamId);
+        delta = pointsForSolve(n, idx < 0 ? order.length : idx, order.length);
+      }
       s.solves += 1;
-      s.breakdown[c.mode] += delta;
+      s.breakdown.families[n.family] = (s.breakdown.families[n.family] ?? 0) + delta;
     } else {
       delta = e.points ?? 0;
       if (e.type === "hint") s.breakdown.hints += delta;
-      else if (e.type === "checkpoint") s.breakdown.live += delta;
-      else if (e.type === "accusation") s.breakdown.inquest += delta;
+      else if (e.type === "checkpoint") s.breakdown.checkpoints += delta;
+      else if (e.type === "partial" || e.type === "accusation") s.breakdown.partial += delta;
       else s.breakdown.adjustments += delta;
     }
     if (delta !== 0) {

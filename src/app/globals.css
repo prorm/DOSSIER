@@ -59,9 +59,11 @@
   --dur: 200ms;
   --dur-slow: 360ms;
 }
+[data-accent="green"] { --accent: var(--color-signal-green); --accent-ink: #03140b; }
 [data-accent="cyan"] { --accent: var(--color-signal-cyan); --accent-ink: #001a1f; }
 [data-accent="magenta"] { --accent: var(--color-signal-magenta); --accent-ink: #1f0010; }
 [data-accent="amber"] { --accent: var(--color-signal-amber); --accent-ink: #1f1300; }
+[data-accent-2="cyan"] { --accent-2: var(--color-signal-cyan); }
 [data-accent-2="green"] { --accent-2: var(--color-signal-green); }
 [data-accent-2="magenta"] { --accent-2: var(--color-signal-magenta); }
 [data-accent-2="amber"] { --accent-2: var(--color-signal-amber); }
@@ -200,6 +202,17 @@
       box-shadow var(--dur) ease;
   }
   .pressable:active:not(:disabled):not([aria-disabled="true"]) { transform: translateY(1px) scale(0.995); }
+
+  /* Untouched / not yet examined: one quiet mark, not a badge on every row. */
+  .unread-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
 
   /* Signal glow used sparingly: solved, first blood, live. */
   .glow { box-shadow: 0 0 0 1px color-mix(in srgb, var(--glow, var(--accent)) 55%, transparent), 0 0 22px -6px var(--glow, var(--accent)); }

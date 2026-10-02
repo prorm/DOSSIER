@@ -1,11 +1,12 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { controlEvent } from "../../src/server/engine/event";
 import { GameError } from "../../src/server/engine/errors";
-import { caseFile, fileAccusation, getBoard, updateBoard } from "../../src/server/engine/inquest";
+import { caseFileView, dispatch, getBoard, nodeDetail } from "../../src/server/game/engine";
+import { updateBoard } from "../../src/server/game/board";
 import { awardCheckpoint, badgeToken, checkpointToken, claimCheckpoint, decideScan, getCheckpoint, stationQueue } from "../../src/server/engine/live";
 import { rotateCheckpointToken } from "../../src/server/engine/admin";
 import { getLeaderboard } from "../../src/server/engine/leaderboard";
-import { submitAnswer } from "../../src/server/engine/play";
+
 import { SYSTEM_ACTOR } from "../../src/server/audit";
 import { signToken } from "../../src/server/security/crypto";
 import type { DB } from "../../src/server/db/client";
@@ -21,40 +22,50 @@ beforeAll(async () => {
   event = await startEvent(db, await importFixture(db, "test-event"));
 });
 
+const submitAnswer = (_db: DB, o: { event: EventRow; teamId: string; challengeId: string; answer: string }) =>
+  dispatch(_db, { event: o.event, teamId: o.teamId, nodeId: o.challengeId, action: { type: "answer", value: o.answer } });
+
+/** The v1 accusation is now the `verdict` final-reconstruction node. */
+async function fileAccusation(_db: DB, o: { event: EventRow; teamId: string; answers: Record<string, string> }) {
+  const r = await dispatch(_db, { event: o.event, teamId: o.teamId, nodeId: "verdict", action: { type: "accuse", answers: o.answers } });
+  const d = (r.feedback.data ?? {}) as { correctCount?: number; delta?: number };
+  return { correctCount: r.solved ? 2 : (d.correctCount ?? 0), delta: r.solved ? r.pointsDelta : (d.delta ?? 0), fullyCorrect: r.solved, message: r.feedback.message ?? "" };
+}
+
 const score = async (teamId: string) => (await getLeaderboard(db, event.id, "live")).standings.find((s) => s.teamId === teamId)!.score;
 
 describe("evidence pipeline", () => {
   it("reveals at start, after a challenge, and at a scheduled time — never earlier", async () => {
     const t = await makeTeam(db, event);
-    let file = (await caseFile(db, event, t.id))!;
+    let file = await caseFileView(db, event, t.id);
     const json = JSON.stringify(file);
     expect(file.evidence.map((e) => e.id)).toEqual(["ev-start"]);
-    expect(file.sealedCount).toBe(2);
+    expect(file.sealed).toBe(2);
     expect(file.nextReleaseAt).toBe("2030-01-01T00:00:00.000Z");
     for (const secret of ["SEALED-TITLE-HIDDEN", "SEALED-BODY-HIDDEN", "SEALED-TITLE-LATER", "SEALED-TIMELINE", "SOLUTION-TEXT"]) expect(json).not.toContain(secret);
-    expect(file.hiddenTimelineCount).toBe(1);
+    expect(file.hiddenTimeline).toBe(1);
     expect(file.solution).toBeNull();
 
     await submitAnswer(db, { event, teamId: t.id, challengeId: "i1", answer: "Open  Sesame" });
-    file = (await caseFile(db, event, t.id))!;
+    file = await caseFileView(db, event, t.id);
     expect(file.evidence.map((e) => e.id).sort()).toEqual(["ev-hidden", "ev-start"]);
     expect(JSON.stringify(file)).toContain("SEALED-TIMELINE");
 
-    file = (await caseFile(db, { ...event, endsAt: null }, t.id, new Date("2030-01-02T00:00:00Z")))!;
+    file = await caseFileView(db, { ...event, endsAt: null }, t.id, new Date("2030-01-02T00:00:00Z"));
     expect(file.evidence.map((e) => e.id)).toContain("ev-later");
   });
 });
 
-describe("accusations", () => {
+describe("accusations (final-reconstruction)", () => {
   it("awards partial credit, escalates penalties, reports only the count, and locks when correct", async () => {
     const t = await makeTeam(db, event);
     const a1 = await fileAccusation(db, { event, teamId: t.id, answers: { who: "s1", why: "greed" } });
-    expect(a1).toMatchObject({ attemptNo: 1, correctCount: 1, credit: 50, penalty: 10, delta: 40, locked: false });
-    expect(JSON.stringify(a1)).not.toContain("s2");
+    expect(a1).toMatchObject({ correctCount: 1, delta: 40, fullyCorrect: false });
+    expect(a1.message).not.toContain("s2");
     const a2 = await fileAccusation(db, { event, teamId: t.id, answers: { who: "s1", why: "love" } });
-    expect(a2).toMatchObject({ correctCount: 0, penalty: 20, delta: -20 });
+    expect(a2).toMatchObject({ correctCount: 0, delta: -20 });
     const a3 = await fileAccusation(db, { event, teamId: t.id, answers: { who: "s2", why: "greed" } });
-    expect(a3).toMatchObject({ fullyCorrect: true, penalty: 0, delta: 100, locked: true });
+    expect(a3).toMatchObject({ fullyCorrect: true });
     expect(await score(t.id)).toBe(40 - 20 + 100);
     await expect(fileAccusation(db, { event, teamId: t.id, answers: { who: "s2", why: "greed" } })).rejects.toMatchObject({ code: "already_solved" });
   });
@@ -68,9 +79,8 @@ describe("accusations", () => {
 
   it("does not offer sealed evidence as an accusation option", async () => {
     const t = await makeTeam(db, event);
-    const file = (await caseFile(db, event, t.id))!;
-    const opts = JSON.stringify(file.accusation.fields);
-    expect(opts).not.toContain("SEALED");
+    const d = await nodeDetail(db, event, t.id, "verdict");
+    expect(JSON.stringify(d)).not.toContain("SEALED");
   });
 });
 
@@ -157,9 +167,9 @@ describe("live checkpoints", () => {
 describe("solution disclosure", () => {
   it("reveals the inquest solution only after the event ends", async () => {
     const t = await makeTeam(db, event);
-    expect((await caseFile(db, event, t.id))!.solution).toBeNull();
+    expect((await caseFileView(db, event, t.id)).solution).toBeNull();
     const ended = await controlEvent(db, event, "end", SYSTEM_ACTOR);
-    const file = (await caseFile(db, ended, t.id))!;
+    const file = await caseFileView(db, ended, t.id);
     expect(file.solution?.md).toBe("SOLUTION-TEXT");
     expect(file.solution?.answers).toEqual([
       { field: "Who", value: "Suspect Two" },

@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -20,8 +22,21 @@ const createdAt = () => ts("created_at").notNull().defaultNow();
 
 export type EventStatus = "draft" | "live" | "paused" | "ended";
 
+/* ─────────────────────────── Organizations ─────────────────────────── */
+
+export const organizations = pgTable("organizations", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  university: text("university").notNull().default(""),
+  logo: text("logo"),
+  createdAt: createdAt(),
+});
+
 export const events = pgTable("events", {
-  id: text("id").primaryKey(), // pack slug
+  id: text("id").primaryKey(), // pack slug / studio id
+  organizationId: text("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+  /** "pack" (imported from ./packs) or "studio" (authored in DOSSIER Studio). */
+  kind: text("kind").$type<"pack" | "studio">().notNull().default("pack"),
   name: text("name").notNull(),
   status: text("status").$type<EventStatus>().notNull().default("draft"),
   active: boolean("active").notNull().default(false),
@@ -36,6 +51,12 @@ export const events = pgTable("events", {
   pausedAt: ts("paused_at"),
   frozenAt: ts("frozen_at"),
   packHash: text("pack_hash"),
+  /** Published, compiled blueprint (server-only: contains truth tables and templates). */
+  blueprint: jsonb("blueprint").$type<Record<string, unknown> | null>(),
+  blueprintVersion: integer("blueprint_version").notNull().default(0),
+  /** Studio working copy; publishing validates it and copies it to `blueprint`. */
+  draft: jsonb("draft").$type<Record<string, unknown> | null>(),
+  publishedAt: ts("published_at"),
   displayKeyVersion: integer("display_key_version").notNull().default(1),
   createdAt: createdAt(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -48,7 +69,13 @@ export const challenges = pgTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     id: text("id").notNull(),
-    mode: text("mode").$type<"hunt" | "ctf" | "inquest">().notNull(),
+    /** Challenge family (cryptic, browser, forensics, ctf, inquest, physical, final, hunt, …). */
+    mode: text("mode").notNull(),
+    primitive: text("primitive").notNull().default("static-answer"),
+    roundId: text("round_id"),
+    actId: text("act_id"),
+    difficulty: jsonb("difficulty").$type<Record<string, number>>().notNull().default({}),
+    estimatedMinutes: integer("estimated_minutes").notNull().default(15),
     category: text("category"),
     title: text("title").notNull(),
     bodyMd: text("body_md").notNull().default(""),
@@ -81,6 +108,15 @@ export const checkpoints = pgTable(
     pinHash: text("pin_hash"),
     tokenVersion: integer("token_version").notNull().default(1),
     sortOrder: integer("sort_order").notNull().default(0),
+    kind: text("kind").$type<"qr" | "gps">().notNull().default("qr"),
+    lat: doublePrecision("lat"),
+    lon: doublePrecision("lon"),
+    radiusM: doublePrecision("radius_m"),
+    /** First N teams only (0 = unlimited). */
+    claimLimit: integer("claim_limit").notNull().default(0),
+    expiresAt: ts("expires_at"),
+    /** Printed codes are issued per team; a team may only claim its own code. */
+    teamScoped: boolean("team_scoped").notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.eventId, t.id] })],
 );
@@ -100,6 +136,9 @@ export const teams = pgTable(
     status: text("status").$type<"active" | "disqualified">().notNull().default("active"),
     statusReason: text("status_reason"),
     affiliation: text("affiliation"),
+    /** "playtest" teams belong to organisers: they can play drafts and never appear on public boards. */
+    kind: text("kind").$type<"player" | "playtest">().notNull().default("player"),
+    createdBy: text("created_by"),
     lastSeenAt: ts("last_seen_at"),
     createdAt: createdAt(),
   },
@@ -217,7 +256,7 @@ export const checkpointScans = pgTable(
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
     status: text("status").$type<"pending" | "confirmed" | "rejected">().notNull().default("pending"),
-    method: text("method").$type<"team-scan" | "badge-scan" | "manual">().notNull(),
+    method: text("method").$type<"team-scan" | "badge-scan" | "manual" | "gps">().notNull(),
     clientRef: text("client_ref"),
     points: integer("points").notNull().default(0),
     decidedBy: text("decided_by"),
@@ -303,7 +342,7 @@ export const scoreAdjustments = pgTable("score_adjustments", {
 
 /* ─────────────────────────── Append-only ledgers ─────────────────────────── */
 
-export type LogType = "solve" | "hint" | "checkpoint" | "accusation" | "adjustment";
+export type LogType = "solve" | "hint" | "checkpoint" | "accusation" | "adjustment" | "partial";
 
 /**
  * The event log is the score ledger. Rows are append-only (enforced by a DB
@@ -377,5 +416,236 @@ export const usedTokens = pgTable("used_tokens", {
   usedAt: ts("used_at").notNull().defaultNow(),
   expiresAt: ts("expires_at").notNull(),
 });
+
+/* ─────────────────────────── Compiled event (materialised from the blueprint) ─────────────────────────── */
+
+const eventFk = () =>
+  text("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" });
+
+export const stories = pgTable("stories", {
+  eventId: text("event_id")
+    .primaryKey()
+    .references(() => events.id, { onDelete: "cascade" }),
+  /** Original Markdown sources as imported ([{ name, markdown }]). */
+  sources: jsonb("sources").$type<{ name: string; markdown: string }[]>().notNull().default([]),
+  /** Validated structured story model extracted by the compiler. */
+  model: jsonb("model").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const narrativeActs = pgTable(
+  "narrative_acts",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    phase: text("phase"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+export const rounds = pgTable(
+  "rounds",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    actId: text("act_id").notNull(),
+    title: text("title").notNull(),
+    family: text("family").notNull(),
+    tier: text("tier").notNull(),
+    intro: text("intro").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+export const characters = pgTable(
+  "characters",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    name: text("name").notNull(),
+    role: text("role").notNull().default(""),
+    bio: text("bio").notNull().default(""),
+    isSuspect: boolean("is_suspect").notNull().default(false),
+    relationships: jsonb("relationships").$type<{ to: string; kind: string }[]>().notNull().default([]),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+/** Inquest truth per suspect (server-only). */
+export const suspects = pgTable(
+  "suspects",
+  {
+    eventId: eventFk(),
+    characterId: text("character_id").notNull(),
+    isCulprit: boolean("is_culprit").notNull().default(false),
+    motive: text("motive").notNull().default(""),
+    redHerring: text("red_herring"),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.characterId] })],
+);
+
+export const locations = pgTable(
+  "locations",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    lat: doublePrecision("lat"),
+    lon: doublePrecision("lon"),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+export const artifacts = pgTable(
+  "artifacts",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    name: text("name").notNull(),
+    kind: text("kind").notNull().default("object"),
+    description: text("description").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+export const timelineEvents = pgTable(
+  "timeline_events",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    at: text("at").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    actors: jsonb("actors").$type<string[]>().notNull().default([]),
+    locationId: text("location_id"),
+    isPublic: boolean("is_public").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+/** Evidence catalogue (definitions). Team possession lives in the state journal / evidence_reveals. */
+export const evidence = pgTable(
+  "evidence",
+  {
+    eventId: eventFk(),
+    id: text("id").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    summary: text("summary").notNull().default(""),
+    about: jsonb("about").$type<Record<string, string[]>>().notNull().default({}),
+    autoGate: jsonb("auto_gate").$type<unknown>(),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.id] })],
+);
+
+export const hints = pgTable(
+  "hints",
+  {
+    eventId: eventFk(),
+    challengeId: text("challenge_id").notNull(),
+    idx: integer("idx").notNull(),
+    level: text("level").notNull(),
+    cost: integer("cost").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.challengeId, t.idx] })],
+);
+
+/** Registry snapshot of available primitives (introspection / external tooling). */
+export const challengeTypes = pgTable("challenge_types", {
+  id: text("id").primaryKey(),
+  version: text("version").notNull(),
+  family: text("family").notNull(),
+  label: text("label").notNull(),
+  summary: text("summary").notNull().default(""),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Materialised edges of the challenge graph (gates + fact flow), for querying and analytics. */
+export const challengeDependencies = pgTable(
+  "challenge_dependencies",
+  {
+    eventId: eventFk(),
+    challengeId: text("challenge_id").notNull(),
+    dependsOn: text("depends_on").notNull(),
+    /** node | evidence | checkpoint | fact | flag | phase | discovery */
+    kind: text("kind").notNull(),
+    hidden: boolean("hidden").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.challengeId, t.dependsOn, t.kind] }), index("challenge_deps_target_idx").on(t.eventId, t.dependsOn)],
+);
+
+/** One row per (team, node) the first time an instance is issued. No answers, only fingerprints. */
+export const challengeInstances = pgTable(
+  "challenge_instances",
+  {
+    eventId: text("event_id").notNull(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id").notNull(),
+    primitive: text("primitive").notNull(),
+    blueprintVersion: integer("blueprint_version").notNull(),
+    seedFingerprint: text("seed_fingerprint").notNull(),
+    answerFingerprint: text("answer_fingerprint"),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.challengeId] })],
+);
+
+/* ─────────────────────────── Game state (event-sourced) ─────────────────────────── */
+
+/** Append-only state journal. GameState is a pure fold over these rows. */
+export const gameStateEvents = pgTable(
+  "game_state_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    eventId: text("event_id").notNull(),
+    teamId: uuid("team_id").notNull(),
+    type: text("type").notNull(),
+    nodeId: text("node_id"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    /** Who caused it: "team", "system", "staff:<email>", "station:<id>". */
+    actor: text("actor").notNull().default("team"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("gse_team_idx").on(t.eventId, t.teamId, t.id), index("gse_event_recent_idx").on(t.eventId, t.id), index("gse_node_idx").on(t.eventId, t.nodeId, t.type)],
+);
+
+/** Snapshot cache of the fold (rebuildable from the journal at any time). */
+export const gameStates = pgTable("game_states", {
+  teamId: uuid("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  eventId: text("event_id").notNull(),
+  version: bigint("version", { mode: "number" }).notNull().default(0),
+  state: jsonb("state").$type<Record<string, unknown>>().notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Evidence-board links (projection of the board with server-side validity, for gates and analytics). */
+export const evidenceLinks = pgTable(
+  "evidence_links",
+  {
+    eventId: text("event_id").notNull(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    linkId: text("link_id").notNull(),
+    fromId: text("from_id").notNull(),
+    toId: text("to_id").notNull(),
+    relation: text("relation").notNull().default(""),
+    valid: boolean("valid").notNull().default(false),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.linkId] })],
+);
 
 export const nowSql = sql`now()`;

@@ -1,6 +1,6 @@
 import { getDb } from "@/server/db/client";
 import { cookieName, resolveStaffSession, resolveTeamSession } from "@/server/auth/session";
-import { getActiveEvent } from "@/server/engine/event";
+import { getActiveEvent, getEvent } from "@/server/engine/event";
 import { verifyDisplayToken } from "@/server/engine/display";
 import { bus, topics, type BusMessage } from "@/server/realtime/bus";
 import { errorResponse, parseCookies } from "@/server/http";
@@ -20,15 +20,17 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const scope = url.searchParams.get("scope") ?? "team";
     const db = await getDb();
-    const event = await getActiveEvent(db);
-    if (!event) throw new GameError("not_found", "No active event.");
     const cookies = parseCookies(req.headers.get("cookie"));
+    // Teams follow their own event (playtest teams play unactivated drafts); everyone else the active one.
+    const teamSession = scope === "team" ? await resolveTeamSession(db, cookies[cookieName("team")]) : null;
+    if (scope === "team" && !teamSession) throw new GameError("unauthorized", "Sign in first.");
+    const event = teamSession ? await getEvent(db, teamSession.team.eventId) : await getActiveEvent(db);
+    if (!event) throw new GameError("not_found", "No active event.");
     let subscribed: string[];
     let filter: (m: BusMessage) => boolean = () => true;
 
     if (scope === "team") {
-      const s = await resolveTeamSession(db, cookies[cookieName("team")]);
-      if (!s || s.team.eventId !== event.id) throw new GameError("unauthorized", "Sign in first.");
+      const s = teamSession!;
       subscribed = [topics.event(event.id), topics.team(s.team.id)];
       filter = (m) => m.topic !== topics.event(event.id) || PUBLIC_EVENT_TYPES.has(m.type);
     } else if (scope === "staff") {

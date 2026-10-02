@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { searchSubmissions, SubmissionQuery } from "@/server/engine/admin";
-import { loadChallenges } from "@/server/engine/context";
+import { eq } from "drizzle-orm";
+import { challenges } from "@/server/db/schema";
 import { requireStaffPage } from "@/server/page-auth";
 
 export const metadata = { title: "Submissions" };
@@ -20,7 +21,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
   const { db, event } = await requireStaffPage("admin");
   if (!event) return <EmptyState title="No active event" />;
   const q = SubmissionQuery.parse({ limit: 50, ...sp });
-  const [rows, chs] = await Promise.all([searchSubmissions(db, event, q), loadChallenges(db, event.id, true)]);
+  const [rows, chs] = await Promise.all([searchSubmissions(db, event, q), db.select().from(challenges).where(eq(challenges.eventId, event.id))]);
   const next = rows.length === q.limit ? rows.at(-1)!.id : null;
   const qs = (extra: Record<string, string | number>) => new URLSearchParams({ ...(sp as Record<string, string>), ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, String(v)])) }).toString();
 

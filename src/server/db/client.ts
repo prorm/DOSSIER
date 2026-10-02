@@ -21,6 +21,11 @@ export async function createDb(url: string): Promise<DbHandle> {
     const { PGlite } = await import("@electric-sql/pglite");
     const { drizzle } = await import("drizzle-orm/pglite");
     const dir = url.startsWith("memory://") ? undefined : url.slice("pglite://".length);
+    if (dir) {
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      fs.mkdirSync(path.resolve(dir), { recursive: true });
+    }
     const client = dir ? new PGlite(dir) : new PGlite();
     await client.waitReady;
     const db = drizzle(client, { schema }) as unknown as DB;
@@ -36,7 +41,15 @@ export async function createDb(url: string): Promise<DbHandle> {
 export async function getDbHandle(): Promise<DbHandle> {
   if (g.__dossierDb) return g.__dossierDb;
   if (!g.__dossierDbPromise) {
-    g.__dossierDbPromise = createDb(env().DATABASE_URL).then((h) => (g.__dossierDb = h));
+    g.__dossierDbPromise = createDb(env().DATABASE_URL)
+      .then((h) => {
+        g.__dossierDb = h;
+        return h;
+      })
+      .catch((err) => {
+        g.__dossierDbPromise = undefined;
+        throw err;
+      });
   }
   return g.__dossierDbPromise;
 }

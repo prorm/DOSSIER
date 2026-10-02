@@ -24,7 +24,7 @@ export default async function PlayLeaderboard() {
       >
         Ties go to the team that reached the score first. Updates live.
       </PageHeader>
-      <LeaderboardView initial={lb} myTeamId={session.team.id} modes={ev.modes} />
+      <LeaderboardView initial={lb} myTeamId={session.team.id} modes={[...ev.families, ...(ev.modes.includes("live") ? ["checkpoints"] : []), "partial"]} />
     </>
   );
 }

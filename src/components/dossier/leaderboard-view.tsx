@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import CountUp from "@/components/reactbits/CountUp";
+import { FAMILY_LABEL } from "@/lib/modes";
 import { cn } from "@/lib/utils";
 import type { LeaderboardPayload } from "@/server/engine/leaderboard";
 import type { Standing } from "@/server/engine/scoring";
@@ -100,19 +101,22 @@ export function LeaderboardView({
         </p>
       ) : null}
 
-      <div className="panel overflow-hidden">
-        <div
-          className="hidden grid-cols-[3.5rem_minmax(0,1fr)_repeat(var(--cols),4.5rem)_4rem_6rem] items-center gap-2 border-b border-line px-4 py-2 font-mono text-[0.62rem] uppercase tracking-[0.12em] text-faint md:grid"
-          style={{ ["--cols" as string]: showBreakdown ? modes.length : 0 }}
-        >
-          <span>Rank</span>
-          <span>Team</span>
-          {showBreakdown && modes.map((m) => <span key={m} className="text-right">{m === "inquest" ? "case" : m}</span>)}
-          <span className="text-right">Solves</span>
-          <span className="text-right">Score</span>
-        </div>
+      <div className="lb">
+        {showBreakdown ? (
+          <ul className="lb-legend" aria-label="What the bars show">
+            {/* Only what someone has actually scored in, named the way the rest of the game names it. */}
+            {modes.map((m, i) =>
+              ranked.some((s) => pointsOf(s, m) > 0) ? (
+                <li key={m}>
+                  <i style={{ background: segColor(i), opacity: segOpacity(i) }} aria-hidden="true" />
+                  {modeLabel(m)}
+                </li>
+              ) : null,
+            )}
+          </ul>
+        ) : null}
         <LayoutGroup>
-          <ol aria-label="Leaderboard" className="divide-y divide-line">
+          <ol aria-label="Leaderboard" className="lb-list">
             {ranked.map((s) => (
               <Row key={s.teamId} s={s} mine={s.teamId === myTeamId} move={moves[s.teamId] ?? 0} modes={showBreakdown ? modes : []} reduce={Boolean(reduce)} />
             ))}
@@ -145,46 +149,61 @@ export function LeaderboardView({
   );
 }
 
+/** Categorical colours for the contribution bar: the four signals, then the same four dimmer. Names are always in the legend and the title. */
+const SIGNALS = ["var(--color-signal-green)", "var(--color-signal-cyan)", "var(--color-signal-magenta)", "var(--color-signal-amber)"];
+const segColor = (i: number) => SIGNALS[i % 4]!;
+const segOpacity = (i: number) => (i < 4 ? 1 : i < 8 ? 0.62 : 0.36);
+
+function modeLabel(m: string): string {
+  return m === "partial" ? "partial credit" : m === "checkpoints" ? "checkpoints" : (FAMILY_LABEL[m] ?? m);
+}
+
+function pointsOf(s: Standing, m: string): number {
+  return (m === "checkpoints" ? s.breakdown.checkpoints : m === "partial" ? s.breakdown.partial : s.breakdown.families[m]) || 0;
+}
+
 function Row({ s, mine, move, modes, reduce }: { s: Standing; mine: boolean; move: number; modes: string[]; reduce: boolean }) {
-  const key = (m: string) => (m === "inquest" ? "inquest" : m) as keyof Standing["breakdown"];
+  const parts = modes.map((m, i) => ({ m, i, v: pointsOf(s, m) })).filter((p) => p.v > 0);
+  const total = parts.reduce((a, p) => a + p.v, 0);
   return (
     <motion.li
       layout={reduce ? false : "position"}
       transition={{ type: "spring", stiffness: 380, damping: 36 }}
-      className={cn(
-        "grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-2 px-4 py-3 md:grid-cols-[3.5rem_minmax(0,1fr)_repeat(var(--cols),4.5rem)_4rem_6rem]",
-        mine && "bg-[color-mix(in_srgb,var(--accent)_7%,transparent)] shadow-[inset_2px_0_0_var(--accent)]",
-        move > 0 && "animate-rank-up",
-        move < 0 && "animate-rank-down",
-      )}
-      style={{ ["--cols" as string]: modes.length }}
+      className={cn("lb-row", s.rank <= 3 && "is-top", s.rank === 1 && "is-first", mine && "is-mine", move > 0 && "animate-rank-up", move < 0 && "animate-rank-down")}
       aria-current={mine ? "true" : undefined}
     >
-      <span className="flex items-center gap-1">
-        <span className={cn("num text-sm font-semibold", s.rank <= 3 ? "text-signal" : "text-ink-dim")}>{String(s.rank).padStart(2, "0")}</span>
+      <span className="lb-rank">
+        <span className="num">{String(s.rank).padStart(2, "0")}</span>
         {move ? (
-          <span className={cn("inline-flex items-center font-mono text-[0.6rem]", move > 0 ? "text-signal-green" : "text-signal-magenta")}>
+          <span className={cn("lb-move", move > 0 ? "is-up" : "is-down")}>
             {move > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
             <span className="sr-only">{move > 0 ? "up" : "down"}</span>
             {Math.abs(move)}
           </span>
         ) : null}
       </span>
-      <span className="min-w-0">
-        <span className="block truncate font-mono text-sm font-medium">
+      <span className="lb-team">
+        <span className="lb-name">
           {s.name}
-          {mine ? <span className="ml-2 text-[0.6rem] uppercase tracking-[0.12em] text-signal">you</span> : null}
+          {mine ? <em>you</em> : null}
         </span>
-        {s.affiliation ? <span className="block truncate text-xs text-mute">{s.affiliation}</span> : null}
+        {s.affiliation ? <span className="lb-aff">{s.affiliation}</span> : null}
       </span>
-      {modes.map((m) => (
-        <span key={m} className="num hidden text-right text-xs text-mute md:block">
-          {s.breakdown[key(m)] || "—"}
+      {modes.length ? (
+        <span className="lb-bar" role="img" aria-label={parts.length ? parts.map((p) => `${p.m === "partial" ? "final" : p.m} ${p.v}`).join(", ") : "no points yet"}>
+          {parts.length ? (
+            parts.map((p) => <i key={p.m} title={`${modeLabel(p.m)}: ${p.v}`} style={{ flexGrow: p.v, flexBasis: 0, background: segColor(p.i), opacity: segOpacity(p.i) }} data-share={Math.round((p.v / total) * 100)} />)
+          ) : (
+            <b />
+          )}
         </span>
-      ))}
-      <span className="num hidden text-right text-xs text-mute md:block">{s.solves}</span>
-      <span className="text-right">
-        <CountUp to={s.score} className="text-base font-semibold text-ink" />
+      ) : null}
+      <span className="lb-solves num">
+        {s.solves}
+        <small>solves</small>
+      </span>
+      <span className="lb-score">
+        <CountUp to={s.score} className="num" />
       </span>
     </motion.li>
   );

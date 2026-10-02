@@ -4,7 +4,7 @@ import { getDb, type DB } from "./db/client";
 import type { StaffRole } from "./db/schema";
 import { env } from "./env";
 import { GameError } from "./engine/errors";
-import { getActiveEvent } from "./engine/event";
+import { getActiveEvent, getEvent } from "./engine/event";
 import type { EventRow } from "./engine/types";
 import {
   cookieName,
@@ -82,11 +82,11 @@ export function sameOrigin(req: Request): boolean {
   return allowed.has(origin);
 }
 
-export async function readJson<T>(req: Request, schema: ZodType<T>): Promise<T> {
+export async function readJson<T>(req: Request, schema: ZodType<T>, maxBytes = MAX_BODY): Promise<T> {
   const len = Number(req.headers.get("content-length") ?? 0);
-  if (len > MAX_BODY) throw new GameError("invalid", "Request body too large.");
+  if (len > maxBytes) throw new GameError("invalid", "Request body too large.");
   const text = await req.text();
-  if (text.length > MAX_BODY) throw new GameError("invalid", "Request body too large.");
+  if (text.length > maxBytes) throw new GameError("invalid", "Request body too large.");
   let data: unknown;
   try {
     data = text ? JSON.parse(text) : {};
@@ -166,10 +166,12 @@ export function route<A extends AuthMode, P = Record<string, string>>(
       if (mutating && session && !verifyCsrf(session, req.headers.get(CSRF_HEADER))) {
         throw new GameError("forbidden", "Missing or invalid CSRF token. Reload the page.");
       }
-      const event = await getActiveEvent(db);
+      // A team always plays its own event (organiser playtest teams play drafts); everyone else sees the active event.
+      const event = opts.auth === "team" && team ? await getEvent(db, team.team.eventId) : await getActiveEvent(db);
       if (opts.event && !event) throw new GameError("not_found", "No active event.");
       if (event && staff?.kind === "station" && staff.eventId !== event.id) throw new GameError("unauthorized", "Station session belongs to another event.");
-      if (event && team && team.team.eventId !== event.id && opts.auth === "team") throw new GameError("unauthorized", "Your team belongs to another event.");
+      if (event && team && opts.auth === "team" && team.team.kind !== "playtest" && !event.active && event.status === "draft")
+        throw new GameError("unauthorized", "Your team's event is not open.");
 
       const params = (await context?.params) ?? ({} as P);
       const result = await handler({ req, db, ip, cookies, event, team, staff, actor } as Ctx<A>, params);
